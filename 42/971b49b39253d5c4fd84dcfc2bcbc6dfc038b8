@@ -1,0 +1,89 @@
+.github/workflows/ci.yml
+  s_128929c38feb4a::t_279d61c8af03c6 1-21
+.github/workflows/release.yml
+  s_128929c38feb4a::t_cc7c9e1725dc29 1-18
+.gitignore
+  s_128929c38feb4a::t_2c1565bb3130a8 1-6
+CHANGELOG.md
+  s_128929c38feb4a::t_860e1a3e3f81d2 1-11
+DocBrown.xcodeproj/project.pbxproj
+  s_128929c38feb4a::t_03adcb88094b5c 1-53
+DocBrown.xcodeproj/xcshareddata/xcschemes/DocBrown.xcscheme
+  s_128929c38feb4a::t_4dfd5ad0b98157 1-6
+Package.swift
+  s_128929c38feb4a::t_327093e15c313f 1-15
+README.md
+  s_128929c38feb4a::t_5d015486c21af5 1,5,7,9,11,13,15,17,19,21-100
+Resources/Info.plist
+  s_128929c38feb4a::t_051d4b8f91d0dc 1-20
+Sources/CSQLite/module.modulemap
+  s_128929c38feb4a::t_4160e4aa71c648 1-5
+Sources/CSQLite/shim.h
+  s_128929c38feb4a::t_88161b4c45cbad 1
+Sources/DocBrown/AppController.swift
+  s_128929c38feb4a::t_3f501ccbbc1440 1-139
+Sources/DocBrown/AppModel.swift
+  s_128929c38feb4a::t_c86de72323caec 1-311
+Sources/DocBrown/BrandMark.swift
+  s_128929c38feb4a::t_8467799669cc61 1-19
+Sources/DocBrown/ContentView.swift
+  s_128929c38feb4a::t_d6e35e3272f07f 1-166
+Sources/DocBrown/ConversationView.swift
+  s_128929c38feb4a::t_85eda4986cd236 1-147
+Sources/DocBrown/DateText.swift
+  s_128929c38feb4a::t_5ee509f50a27dd 1-12
+Sources/DocBrown/DocBrownApp.swift
+  s_128929c38feb4a::t_bc8f3b5ec2c9d5 1-36
+Sources/DocBrown/IntegrationSetupView.swift
+  s_128929c38feb4a::t_f809e5a8526744 1-36
+Sources/DocBrown/QuickSearchView.swift
+  s_128929c38feb4a::t_11db7fbef1df84 1-108
+Sources/DocBrown/SettingsView.swift
+  s_128929c38feb4a::t_d233e94568c98b 1-60
+Sources/DocBrownCLI/Entry.swift
+  s_128929c38feb4a::t_1289a7d8a8e3a3 1-55
+Sources/DocBrownCore/BrandGeometry.swift
+  s_128929c38feb4a::t_a51b2df05132d0 1-50
+Sources/DocBrownCore/Database.swift
+  s_128929c38feb4a::t_1c85da10b4a3c7 1-207
+Sources/DocBrownCore/GitContext.swift
+  s_128929c38feb4a::t_b9c28afa0a25ef 1-113
+Sources/DocBrownCore/Hooks.swift
+  s_128929c38feb4a::t_5d38e379ee36b6 1-114
+Sources/DocBrownCore/Importer.swift
+  s_128929c38feb4a::t_20667c9deaf1a5 1-279
+Sources/DocBrownCore/Models.swift
+  s_128929c38feb4a::t_62fac3b076d94d 1-82
+Sources/DocBrownCore/Parser.swift
+  s_128929c38feb4a::t_5858f04e09c622 1-109
+Tests/DocBrownCoreTests/HistoryTests.swift
+  s_128929c38feb4a::t_cfe749ebcd0f9d 1-225
+docs/ARCHITECTURE.md
+  s_128929c38feb4a::t_41af08be24c94d 1-37
+scripts/build-release.sh
+  s_128929c38feb4a::t_b97abe1adf1b96 1-19
+scripts/generate-icon.sh
+  s_128929c38feb4a::t_f936a574aca4da 1-7
+scripts/generate-icon.swift
+  s_128929c38feb4a::t_a587159e994251 1-26
+scripts/generate-project.py
+  s_128929c38feb4a::t_d7898307e6cc71 1-57
+scripts/test.sh
+  s_128929c38feb4a::t_83fef73305d34a 1-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "42971b49b39253d5c4fd84dcfc2bcbc6dfc038b8",
+  "prompts": {},
+  "sessions": {
+    "s_128929c38feb4a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a185c4-8f20-79b3-8fdd-2f7f9f5404f6",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Marc Campbell <marc.e.campbell@gmail.com>"
+    }
+  }
+}
