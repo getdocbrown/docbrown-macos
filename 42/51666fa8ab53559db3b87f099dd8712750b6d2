@@ -1,0 +1,75 @@
+scripts/generate-appcast.sh
+  s_128929c38feb4a::t_6f316ef0f97834 1-21
+scripts/test-updater.py
+  s_128929c38feb4a::t_efb5a12feaf234 9,81-84
+  s_128929c38feb4a::t_16dd7fa3280e12 34-35
+  s_128929c38feb4a::t_08271bbf96e347 1-8,10-33,36-80,85-105
+scripts/build-release.sh
+  s_128929c38feb4a::t_ded8b1c2013a2b 11-15,19
+  s_128929c38feb4a::t_cbf07dbf7b49c6 20
+Sources/DocBrown/AppModel.swift
+  s_128929c38feb4a::t_a521b9d3a2e873 75-80
+scripts/UpdateTestDriver.swift
+  s_128929c38feb4a::t_ae35d2088e6d09 7-8,14,22,46,49
+  s_128929c38feb4a::t_4b52a8d6298b77 1-6,9-13,15-21,23-45,47-48,50-54
+Tests/DocBrownAppTests/UpdaterTests.swift
+  s_128929c38feb4a::t_4bce4e6bbb2524 1-16
+scripts/generate-project.py
+  s_128929c38feb4a::t_1b8f00bf98a661 22-23,26,28
+  s_128929c38feb4a::t_edfeb3cf136dc2 54
+  s_128929c38feb4a::t_cbf07dbf7b49c6 2,29-32,42-43,55
+Sources/DocBrown/SettingsView.swift
+  s_128929c38feb4a::t_a521b9d3a2e873 5,8-14
+  s_128929c38feb4a::t_363a3d7a8b839f 61
+.github/workflows/release.yml
+  s_128929c38feb4a::t_efb5a12feaf234 15-18
+  s_128929c38feb4a::t_6f316ef0f97834 19-22,33-34
+Sources/DocBrown/DocBrownApp.swift
+  s_128929c38feb4a::t_a521b9d3a2e873 6,18
+Resources/DocBrown.entitlements
+  s_128929c38feb4a::t_f2c8d89f762e7a 1-7
+Package.swift
+  s_128929c38feb4a::t_f2c8d89f762e7a 8,12
+Resources/Info.plist
+  s_128929c38feb4a::t_f2c8d89f762e7a 11-20
+Tests/DocBrownCoreTests/HistoryTests.swift
+  s_128929c38feb4a::t_612153dcff673a 102-120
+Sources/DocBrown/AppController.swift
+  s_128929c38feb4a::t_a521b9d3a2e873 154-162
+Sources/DocBrown/AppUpdater.swift
+  s_128929c38feb4a::t_9a549cc18d9df6 57-62
+  s_128929c38feb4a::t_a521b9d3a2e873 1-4,6-56,63-64
+  s_128929c38feb4a::t_d8f7120cada90c 5
+CHANGELOG.md
+  s_128929c38feb4a::t_7980038520371f 3-12
+DocBrown.xcodeproj/project.pbxproj
+  s_128929c38feb4a::t_afd4ccbf7a3203 7-8,53-54,57-65,70-71
+DocBrown.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+  s_128929c38feb4a::t_67b3b7f61d2ab3 1-15
+Package.resolved
+  s_128929c38feb4a::t_b335ba8ec6339f 1-14
+README.md
+  s_128929c38feb4a::t_754439c974e35f 7,9,15-21,92,108,111-118
+Resources/ThirdPartyNotices.txt
+  s_128929c38feb4a::t_d308df0ea435f3 1-134
+Sources/DocBrownCLI/Entry.swift
+  s_128929c38feb4a::t_2e6cee0f785c15 36
+docs/ARCHITECTURE.md
+  s_128929c38feb4a::t_1b47c761205ee8 3,42-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4251666fa8ab53559db3b87f099dd8712750b6d2",
+  "prompts": {},
+  "sessions": {
+    "s_128929c38feb4a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a185c4-8f20-79b3-8fdd-2f7f9f5404f6",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Marc Campbell <marc.e.campbell@gmail.com>"
+    }
+  }
+}
