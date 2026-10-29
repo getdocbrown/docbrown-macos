@@ -1,0 +1,19 @@
+README.md
+  s_c92d2cf783d3ef::t_3d149b9d1e5029 1-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "21576eabea87bb6ddebf85355bdf7d42fa42bc72",
+  "prompts": {},
+  "sessions": {
+    "s_c92d2cf783d3ef": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18370-384d-7ec2-a68d-dc0903c5636b",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Marc Campbell <marc.e.campbell@gmail.com>"
+    }
+  }
+}
