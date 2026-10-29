@@ -40,6 +40,55 @@ final class HistoryTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: store.paths.raw.appendingPathComponent(archive)), try Data(contentsOf: path))
         XCTAssertEqual(try store.associations().first?.confidence, "Referenced")
     }
+    func testNonGitProjectIsListedAndMatchesNestedHistory() throws {
+        for (id, cwd, repo) in [("root", "/projects/new_app", ""), ("nested", "/projects/new_app/server", "/projects/new_app/server"), ("sibling", "/projects/new_app-other", ""), ("underscore", "/projects/newXapp", "")] {
+            try store.execute("INSERT INTO sessions(id,agent,cwd,repository) VALUES(?,?,?,?)", [id,"Codex",cwd,repo])
+            try store.execute("INSERT INTO messages VALUES(?,?,?,?,?,?,?,?,?)", [id+"-m",id,"user","Project history","","","","fixture",1])
+        }
+        XCTAssertTrue(try store.repositories().contains("/projects/new_app"))
+        XCTAssertEqual(Set(try store.search(repository: "/projects/new_app").map(\.id)), ["root","nested"])
+        XCTAssertEqual(Set(try store.search("history", repository: "/projects/new_app", projectRoots: ["/projects/new_app","/projects/new_app-other"]).map(\.id)), ["root","nested","sibling"])
+    }
+
+    func testCodexProjectCatalogIncludesEmptyProjectsNamesAndMultipleRoots() throws {
+        let file = root.appendingPathComponent("codex-state.json")
+        let state: [String: Any] = ["local-projects":[
+            "new":["name":"New project","rootPaths":["/projects/new","/projects/shared"]],
+            "existing":["name":"Existing project","rootPaths":["/projects/existing"]],
+            "invalid":["name":"Remote","rootPaths":["ssh://somewhere"]]
+        ],"project-order":["new","existing"]]
+        let bytes = try JSONSerialization.data(withJSONObject: state)
+        try bytes.write(to: file)
+        let configured = ProjectCatalog.codexProjects(stateFile: file)
+        XCTAssertEqual(configured.map(\.name), ["New project","Existing project"])
+        XCTAssertEqual(configured.first?.roots, ["/projects/new","/projects/shared"])
+        let merged = ProjectCatalog.merged(discovered: ["/projects/new/subrepo","/projects/cli","/projects/shared"], configured: configured)
+        XCTAssertEqual(merged.map(\.id), ["/projects/new","/projects/existing","/projects/cli"])
+        XCTAssertEqual(try Data(contentsOf: file), bytes)
+        XCTAssertEqual(ProjectCatalog.merged(discovered: [], configured: configured, excluded: ["/projects/new","/projects/shared"]).map(\.name), ["Existing project"])
+        try Data("{unfinished".utf8).write(to: file)
+        XCTAssertTrue(ProjectCatalog.codexProjects(stateFile: file).isEmpty)
+    }
+    func testQuickSearchRanksRelevantConversationsAboveRecentIncidentalMentions() throws {
+        func insert(_ id: String, title: String, body: String, updated: String) throws {
+            try store.execute("INSERT INTO sessions(id,agent,title,updated) VALUES(?,?,?,?)", [id, "Codex", title, updated])
+            try store.execute("INSERT INTO messages VALUES(?,?,?,?,?,?,?,?,?)", [id + "-message", id, "user", body, updated, "", "", "fixture", 1])
+        }
+        try insert("recent", title: "Weekly notes", body: "cache " + String(repeating: "unrelated discussion ", count: 250), updated: "2026-10-29")
+        try insert("focused", title: "Storage decisions", body: "cache configuration and cache eviction", updated: "2026-10-20")
+        try insert("title", title: "Cache", body: "Implementation details", updated: "2026-10-01")
+        try insert("unrelated", title: "Window layout", body: "Sidebar appearance", updated: "2026-10-30")
+
+        let matches = try store.search("cache", rankByRelevance: true)
+        XCTAssertEqual(matches.map(\.id), ["title", "focused", "recent"])
+        XCTAssertTrue(matches[1].snippet.contains("cache"))
+        XCTAssertEqual(try store.search("cache", limit: 1, offset: 1, rankByRelevance: true).first?.id, "focused")
+        XCTAssertEqual(try store.search("cache", agent: "Claude Code", rankByRelevance: true).count, 0)
+        XCTAssertEqual(try store.search("nothing matches", rankByRelevance: true).count, 0)
+        XCTAssertEqual(try store.search(rankByRelevance: true).first?.id, "unrelated")
+        XCTAssertEqual(try store.search("cache").first?.id, "recent")
+        XCTAssertNoThrow(try store.search("OR NOT * : \"", rankByRelevance: true))
+    }
     func testIncrementalPartialLineAndRestart() async throws {
         let path = try writeCodex()
         _ = await TranscriptImporter(store: store).scan(roots: [input])
@@ -158,6 +207,116 @@ final class HistoryTests: XCTestCase {
         }
         _ = try await service.refresh()
         XCTAssertEqual(try store.associations().first?.confidence, "Inferred")
+    }
+
+    func testPRSidebarFiltersParticipationAndSortsByActivity() throws {
+        func add(_ number: Int, repo: String = "team/app", date: String, confidence: String = "Referenced", author: String = "other", reviewed: Bool = false, commented: Bool = false) throws {
+            let id = "session-\(number)"
+            let url = "https://github.com/\(repo)/pull/\(number)"
+            try store.execute("INSERT INTO sessions(id,agent,updated) VALUES(?,?,?)", [id,"Codex",date])
+            try store.addAssociation(sessionID: id, kind: "pr", value: url, title: "PR \(number)", confidence: confidence, evidence: "fixture", url: url)
+            if confidence != "Confirmed" {
+                try store.recordPullRequest(["url":url,"title":"Change \(number)","author":["login":author],"updatedAt":date], viewer: "me", reviewed: reviewed, commented: commented)
+            }
+        }
+        try add(99, date: "2026-10-01T00:00:00Z", author: "me")
+        try add(1, date: "2026-10-12T00:00:00Z", author: "me")
+        try add(2, date: "2026-10-10T00:00:00Z", confidence: "Confirmed")
+        try add(3, date: "2026-10-11T00:00:00Z", commented: true)
+        try add(5, repo: "another/tools", date: "2026-10-15T00:00:00Z", reviewed: true)
+        try add(900, date: "2026-10-29T00:00:00Z")
+        try add(88, date: "2026-10-30T00:00:00Z", confidence: "Inferred")
+        let items = try store.pullRequestSummaries()
+        XCTAssertEqual(PullRequestSummary.filtered(items, includeReferences: false).map(\.number), [5,1,3,2,99])
+        XCTAssertEqual(PullRequestSummary.filtered(items, includeReferences: true).map(\.number), [88,900,5,1,3,2,99])
+        XCTAssertEqual(PullRequestSummary.filtered(items, includeReferences: false, organization: "another").map(\.number), [5])
+        XCTAssertEqual(PullRequestSummary.filtered(items, includeReferences: false, repository: "team/app").map(\.number), [1,3,2,99])
+        XCTAssertFalse(try XCTUnwrap(items.first { $0.number == 2 }).hasGitHubDate)
+        XCTAssertEqual(try XCTUnwrap(items.first { $0.number == 88 }).involvement, ["Branch match"])
+        XCTAssertEqual(try XCTUnwrap(items.first { $0.number == 900 }).involvement, ["Mentioned"])
+    }
+
+    func testPRMetadataKeepsCachedParticipationOfflineAndResetsForAnotherAccount() throws {
+        let url = "https://github.com/team/app/pull/1"
+        try store.recordPullRequest(["url":url,"author":["login":"me"],"title":"Feature"], viewer: "me", reviewed: true)
+        try store.recordPullRequest(["html_url":url,"title":"Updated feature"], viewer: "")
+        var row = try XCTUnwrap(store.rows("SELECT * FROM pull_requests").first)
+        XCTAssertEqual(row["authored"], "1"); XCTAssertEqual(row["reviewed"], "1")
+        XCTAssertEqual(row["title"], "Updated feature")
+        try store.recordPullRequest(["url":url,"author":["login":"me"]], viewer: "someone-else")
+        row = try XCTUnwrap(store.rows("SELECT * FROM pull_requests").first)
+        XCTAssertEqual(row["authored"], "0"); XCTAssertEqual(row["reviewed"], "0")
+    }
+
+    func testPRSummaryDeduplicatesAndDoesNotUseHiddenReviewEvidence() throws {
+        let url = "https://github.com/team/app/pull/1"
+        try store.execute("INSERT INTO sessions(id,agent,updated,source_kind) VALUES('user','Codex','2026-10-01','user'),('hidden','Codex','2026-10-29','internal')")
+        try store.addAssociation(sessionID: "user", kind: "pr", value: url, title: "Mention", confidence: "Referenced", evidence: "Link")
+        try store.addAssociation(sessionID: "hidden", kind: "pr", value: url, title: "Internal review", confidence: "Confirmed", evidence: "Hidden review")
+        let visible = try store.pullRequestSummaries()
+        XCTAssertEqual(visible.count, 1)
+        XCTAssertFalse(try XCTUnwrap(visible.first).isInvolved)
+        XCTAssertEqual(visible.first?.updated, "2026-10-01")
+        let all = try store.pullRequestSummaries(includeInternal: true)
+        XCTAssertEqual(all.count, 1)
+        XCTAssertTrue(try XCTUnwrap(all.first).isInvolved)
+        XCTAssertEqual(all.first?.updated, "2026-10-29")
+    }
+
+    func testGitHubParticipationUsesAuthorReviewsAndCommentsNotMentions() async throws {
+        try store.execute("INSERT INTO sessions(id,agent,remote) VALUES('s','Codex','https://github.com/team/app.git')")
+        for number in 1...4 {
+            let url = "https://github.com/team/app/pull/\(number)"
+            try store.addAssociation(sessionID: "s", kind: "pr", value: url, title: "PR \(number)", confidence: "Referenced", evidence: "Mention only", url: url)
+        }
+        let service = AttributionService(store: store, gh: "/test/gh") { _, args, _ in
+            if args.first == "auth" { return "signed in" }
+            if args.first == "api" && args.contains("user") { return "me" }
+            let numbers: [Int] = args.contains("q=is:pr author:me") ? [1] : args.contains("q=is:pr reviewed-by:me") ? [2] : args.contains("q=is:pr commenter:me") ? [3] : [1,2,3,4]
+            let prs: [[String: Any]] = numbers.map { ["number":$0,"url":"https://github.com/team/app/pull/\($0)","title":"Change \($0)","author":["login":$0 == 1 ? "me" : "other"],"updatedAt":"2026-10-29T00:00:00Z"] }
+            return String(data: try! JSONSerialization.data(withJSONObject: prs), encoding: .utf8)
+        }
+        _ = try await service.refresh()
+        let items = try store.pullRequestSummaries()
+        XCTAssertEqual(Set(PullRequestSummary.filtered(items, includeReferences: false).map(\.number)), [1,2,3])
+        XCTAssertFalse(try XCTUnwrap(items.first { $0.number == 4 }).isInvolved)
+        XCTAssertTrue(try store.associations().allSatisfy { $0.confidence == "Referenced" })
+    }
+
+    func testRecentAccountActivityAppearsWithoutRepositoryOrConversationLinks() async throws {
+        try store.recordPullRequest(["url":"https://github.com/other/account/pull/1","author":["login":"previous-account"]], viewer: "previous-account")
+        let service = AttributionService(store: store, gh: "/test/gh") { _, args, _ in
+            if args.first == "auth" { return "signed in" }
+            if args.first == "api" && args.contains("user") { return "me" }
+            if args.contains("q=is:pr author:me") {
+                return "[{\"url\":\"https://github.com/team/main-app/pull/500\",\"title\":\"Latest work\",\"author\":{\"login\":\"me\"},\"updatedAt\":\"2026-10-29T11:00:00Z\"}]"
+            }
+            return "[]"
+        }
+        _ = try await service.refresh()
+        try store.recordPullRequest(["url":"https://github.com/team/older/pull/2","author":["login":"me"],"updatedAt":"2026-10-14T12:00:00Z"], viewer: "me")
+        let items = PullRequestSummary.filtered(try store.pullRequestSummaries(), includeReferences: false, organization: "team")
+        XCTAssertEqual(items.map(\.number), [500,2])
+        XCTAssertFalse(try store.pullRequestSummaries().contains { $0.repository == "other/account" })
+        XCTAssertEqual(try store.associations().count, 0)
+        XCTAssertEqual(try store.counts().sessions, 0)
+        XCTAssertEqual(PullRequestSummary.filtered(items, includeReferences: false, repository: "team/main-app").count, 1)
+    }
+
+    func testPRActivityKeepsNewestPageWhenLaterPageFails() async throws {
+        let service = AttributionService(store: store, gh: "/test/gh") { _, args, _ in
+            if args.first == "auth" { return "signed in" }
+            if args.contains("user") { return "me" }
+            if args.contains("q=is:pr author:me") {
+                if args.contains("page=2") { return nil }
+                let prs: [[String: Any]] = (1...100).map { ["url":"https://github.com/team/app/pull/\($0)","author":["login":"me"],"updatedAt":"2026-10-29T12:00:00Z"] }
+                return String(data: try! JSONSerialization.data(withJSONObject: prs), encoding: .utf8)
+            }
+            return "[]"
+        }
+        let status = try await service.refresh()
+        XCTAssertTrue(status.contains("1 GitHub lookups"))
+        XCTAssertEqual(try store.pullRequestSummaries().count, 100)
     }
 
     func testHookInstallPreservesSettingsAndUninstallsOnlyOwnedCommands() throws {

@@ -26,8 +26,8 @@ struct ContentView: View {
                     Text("\(model.visibleSessions.count)").font(.caption.monospacedDigit())
                 }.foregroundStyle(.secondary).padding(.horizontal, 18).padding(.bottom, 8)
                 if model.visibleSessions.isEmpty {
-                    ContentUnavailableView(model.query.isEmpty ? "Your history starts here" : "No conversations found", systemImage: model.query.isEmpty ? "tray" : "magnifyingglass", description: Text(model.query.isEmpty ? "DocBrown automatically discovers local Codex and Claude Code transcripts. You can also import a folder." : "Try fewer words, a file path, or a different filter."))
-                    if model.query.isEmpty { Button("Import a Folder…") { model.addFolder() }.padding(.bottom, 30) }
+                    ContentUnavailableView(emptyTitle, systemImage: model.query.isEmpty ? "tray" : "magnifyingglass", description: Text(emptyDescription))
+                    if model.query.isEmpty && model.repository.isEmpty && model.selectedPR == nil { Button("Import a Folder…") { model.addFolder() }.padding(.bottom, 30) }
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 6) {
@@ -58,7 +58,7 @@ struct ContentView: View {
         } detail: {
             if let session = model.selectedSession {
                 ConversationView(session: session)
-            } else if let url = model.selectedPR, let pr = model.uniquePRs.first(where: { $0.value == url }) {
+            } else if let url = model.selectedPR, let pr = model.uniquePRs.first(where: { $0.url == url }) {
                 PRDetail(pr: pr)
             } else {
                 WelcomeView()
@@ -79,6 +79,17 @@ struct ContentView: View {
         .onChange(of: model.selectedID) { model.select(model.selectedID) }
         .onChange(of: model.selectedPR) { model.selectedID = nil; model.reload() }
         .alert("DocBrown couldn’t complete that action", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) { Button("OK") { model.error = nil } } message: { Text(model.error ?? "") }
+    }
+
+    private var emptyTitle: String {
+        if !model.query.isEmpty { return "No conversations found" }
+        if model.selectedPR != nil { return "No linked conversations yet" }
+        return model.repository.isEmpty ? "Your history starts here" : "No conversations in this project yet"
+    }
+    private var emptyDescription: String {
+        if !model.query.isEmpty { return "Try fewer words, a file path, or a different filter." }
+        if model.selectedPR != nil { return "This PR is part of your GitHub activity. A matching local conversation hasn’t been found yet." }
+        return model.repository.isEmpty ? "DocBrown automatically discovers local Codex and Claude Code transcripts. You can also import a folder." : "Conversations saved in this project’s folders appear here automatically."
     }
 
     private var sidebar: some View {
@@ -108,19 +119,25 @@ struct ContentView: View {
                     }
                     VStack(alignment: .leading, spacing: 6) {
                         Eyebrow(text: "Projects").padding(.horizontal, 10).padding(.bottom, 5)
-                        ForEach(model.repositories, id: \.self) { path in
-                            navRow(URL(fileURLWithPath: path).lastPathComponent, icon: "folder", selected: model.repository == path) { model.repository = path; model.selectedPR = nil }
-                                .help(path)
+                        ForEach(model.projects) { project in
+                            navRow(project.name, icon: "folder", selected: model.repository == project.id) { model.repository = project.id; model.selectedPR = nil }
+                                .help(project.roots.joined(separator: "\n"))
                         }
                         if model.repositories.isEmpty { Text("Projects appear as history is imported.").font(.caption).foregroundStyle(.tertiary).padding(.horizontal, 10) }
                     }
                     VStack(alignment: .leading, spacing: 6) {
-                        HStack { Eyebrow(text: "Pull requests"); Spacer(); Text(model.uniquePRs.count.formatted()).font(.system(size: 10, design: .monospaced)).foregroundStyle(.tertiary) }.padding(.horizontal, 10).padding(.bottom, 5)
-                        ForEach(Array(model.uniquePRs.prefix(7))) { pr in prRow(pr) }
-                        if model.uniquePRs.count > 7 {
+                        HStack { Eyebrow(text: "Pull requests"); Spacer(); Text(model.filteredPullRequests.count.formatted()).font(.system(size: 10, design: .monospaced)).foregroundStyle(.tertiary) }.padding(.horizontal, 10).padding(.bottom, 5)
+                        prFilters
+                        Text("Recently updated").font(.system(size: 9)).foregroundStyle(.tertiary).padding(.horizontal, 10)
+                        ForEach(Array(model.filteredPullRequests.prefix(7))) { pr in prRow(pr) }
+                        if model.filteredPullRequests.count > 7 {
                             DisclosureGroup {
-                                LazyVStack(spacing: 6) { ForEach(Array(model.uniquePRs.dropFirst(7))) { pr in prRow(pr) } }
-                            } label: { Text("All pull requests").font(.system(size: 11)).foregroundStyle(.secondary) }.padding(.horizontal, 10).padding(.top, 7).tint(.secondary)
+                                LazyVStack(spacing: 6) { ForEach(Array(model.filteredPullRequests.dropFirst(7))) { pr in prRow(pr) } }
+                            } label: { Text("Show more").font(.system(size: 11)).foregroundStyle(.secondary) }.padding(.horizontal, 10).padding(.top, 7).tint(.secondary)
+                        }
+                        if model.filteredPullRequests.isEmpty {
+                            Text(model.refreshingGitHub ? "Checking your GitHub activity…" : "No PRs in this view. Change filters or refresh GitHub activity.")
+                                .font(.caption).foregroundStyle(.secondary).padding(10)
                         }
                     }
                 }.padding(.horizontal, 12)
@@ -141,12 +158,61 @@ struct ContentView: View {
             }.padding(.horizontal, 10).padding(.vertical, 9).background(selected ? Design.amber.opacity(0.09) : .clear, in: RoundedRectangle(cornerRadius: 8)).contentShape(Rectangle())
         }.buttonStyle(.plain)
     }
-    private func prRow(_ pr: Association) -> some View {
-        navRow(prLabel(pr), icon: "arrow.triangle.pull", selected: model.selectedPR == pr.value) { model.selectedPR = pr.value; model.query = ""; model.repository = ""; model.agent = "" }.help(pr.value)
+    private var prFilters: some View {
+        VStack(alignment: .leading, spacing: 5) {
+        Menu {
+            Picker("Show", selection: $model.prIncludeReferences) {
+                Text("Your work").tag(false)
+                Text("All activity, including mentions").tag(true)
+            }
+            Divider()
+            Picker("Organization", selection: $model.prOrganization) {
+                Text("All organizations").tag("")
+                ForEach(model.prOrganizations, id: \.self) { Text($0).tag($0) }
+            }
+            Picker("Repository", selection: $model.prRepository) {
+                Text("All repositories").tag("")
+                ForEach(model.prRepositories, id: \.self) { Text($0).tag($0) }
+            }
+            if !model.prOrganization.isEmpty || !model.prRepository.isEmpty {
+                Button("Clear organization and repository") { model.prOrganization = ""; model.prRepository = "" }
+            }
+            Divider()
+            Button("Refresh GitHub activity") { model.refreshGitHub() }.disabled(model.refreshingGitHub)
+        } label: {
+            Label(model.prIncludeReferences ? "All activity" : "Your work", systemImage: "line.3.horizontal.decrease")
+                .font(.system(size: 11, weight: .medium))
+        }.menuStyle(.borderlessButton)
+            .help("Your work includes PRs you created, contributed commits to, reviewed, or commented on. Filter by organization or repository.")
+        HStack(spacing: 4) {
+            Text(!model.prRepository.isEmpty ? model.prRepository : model.prOrganization.isEmpty ? "All organizations & repositories" : model.prOrganization)
+                .font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1)
+            if !model.prOrganization.isEmpty || !model.prRepository.isEmpty {
+                Button { model.prOrganization = ""; model.prRepository = "" } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 10)) }
+                    .buttonStyle(.plain).help("Show all organizations and repositories")
+            }
+        }
+        }.padding(.horizontal, 10).padding(.bottom, 4)
     }
-    private func prLabel(_ pr: Association) -> String {
-        let parts = pr.value.split(separator: "/")
-        return parts.count >= 5 ? "\(parts[parts.count-3]) #\(parts.last!)" : pr.title
+    private func prRow(_ pr: PullRequestSummary) -> some View {
+        Button { model.selectedPR = pr.url; model.query = ""; model.repository = ""; model.agent = "" } label: {
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 5) {
+                    Image(systemName: "arrow.triangle.pull").foregroundStyle(pr.isInvolved ? Design.cyan : Design.muted)
+                    Text(pr.repository).lineLimit(1).truncationMode(.middle)
+                    Spacer(minLength: 2)
+                    Text("#\(pr.number)").monospacedDigit().fixedSize()
+                }.font(.system(size: 10, weight: .medium))
+                Text(pr.title).font(.system(size: 12, weight: .medium)).lineLimit(2).multilineTextAlignment(.leading)
+                HStack {
+                    Text(pr.involvement.first ?? "Mentioned").lineLimit(1)
+                    Spacer(minLength: 3)
+                    Text(DateText.display(pr.updated)).lineLimit(1)
+                }.font(.system(size: 9)).foregroundStyle(.secondary)
+            }.padding(10).frame(maxWidth: .infinity, alignment: .leading)
+                .background(model.selectedPR == pr.url ? Design.amber.opacity(0.09) : .clear, in: RoundedRectangle(cornerRadius: 8))
+                .contentShape(Rectangle())
+        }.buttonStyle(.plain).help(pr.involvement.joined(separator: " · ") + "\n" + (pr.hasGitHubDate ? "Last PR update: " : "Last conversation: ") + pr.updated + "\n" + pr.url)
     }
 }
 
@@ -190,8 +256,9 @@ struct WelcomeView: View {
                     Text("Every prompt. Every decision. The story behind what you built — ready when you need it.").font(.system(size: 16)).foregroundStyle(.secondary).lineSpacing(6).frame(maxWidth: 365)
                     HStack(spacing: 12) {
                         Button { model.showSearch() } label: { HStack(spacing: 22) { Text("Find something").fontWeight(.medium); KeyboardCap(text: "⌘D") }.padding(.horizontal, 6).padding(.vertical, 4) }.buttonStyle(.borderedProminent).tint(Design.amber).foregroundStyle(.black)
-                        Button("Connect your tools") { model.openSetup() }.buttonStyle(.plain).font(.system(size: 12)).foregroundStyle(.secondary)
+                        Button("Import a folder…") { model.addFolder() }.buttonStyle(.plain).font(.system(size: 12)).foregroundStyle(.secondary)
                     }.padding(.top, 4)
+                    Text("Codex and Claude Code history is imported automatically. No setup required.").font(.caption).foregroundStyle(.secondary)
                     Rectangle().fill(Design.line).frame(height: 1).padding(.top, 26)
                     HStack(spacing: 35) {
                         stat(model.sessionCount.formatted(), "Conversations")

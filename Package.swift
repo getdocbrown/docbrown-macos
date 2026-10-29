@@ -10,6 +10,7 @@ let package = Package(
         .target(name: "DocBrownCore", dependencies: ["CSQLite"]),
         .executableTarget(name: "DocBrown", dependencies: ["DocBrownCore"]),
         .executableTarget(name: "DocBrownCLI", dependencies: ["DocBrownCore"]),
-        .testTarget(name: "DocBrownCoreTests", dependencies: ["DocBrownCore"])
+        .testTarget(name: "DocBrownCoreTests", dependencies: ["DocBrownCore"]),
+        .testTarget(name: "DocBrownAppTests", dependencies: ["DocBrown"])
     ]
 )

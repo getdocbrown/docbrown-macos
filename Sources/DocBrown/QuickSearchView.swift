@@ -6,7 +6,9 @@ struct QuickSearchView: View {
         VStack(spacing: 0) {
             HStack(spacing: 14) {
                 BrandMark().frame(width: 46, height: 46)
-                QuickSearchField(text: $model.quickQuery, focusToken: model.quickFocusToken)
+                QuickSearchField(text: $model.quickQuery, focusToken: model.quickFocusToken,
+                                 onNavigate: model.moveQuickSelection, onSubmit: model.openQuickSelection,
+                                 onDismiss: model.hideSearch)
                     .frame(height: 34)
                 Text("esc").font(.system(size: 11, design: .monospaced)).foregroundStyle(.tertiary).padding(5).background(.quaternary, in: RoundedRectangle(cornerRadius: 4))
             }.padding(.horizontal, 24).padding(.top, 23).padding(.bottom, 21)
@@ -32,9 +34,10 @@ struct QuickSearchView: View {
                                     Spacer(minLength: 0)
                                     if model.quickSelection == index { Image(systemName: "return").foregroundStyle(.secondary).font(.caption) }
                                 }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(model.quickSelection == index ? Design.amber.opacity(0.09) : .clear, in: RoundedRectangle(cornerRadius: 9))
+                                    .background(model.quickSelection == index ? Design.amber.opacity(0.16) : .clear, in: RoundedRectangle(cornerRadius: 9))
+                                    .overlay(RoundedRectangle(cornerRadius: 9).stroke(model.quickSelection == index ? Design.amber.opacity(0.35) : .clear, lineWidth: 1))
                                     .contentShape(Rectangle())
-                            }.buttonStyle(.plain).id(index)
+                            }.buttonStyle(.plain).id(session.id)
                         }
                         if model.quickResults.isEmpty && !model.quickSearching {
                             VStack(spacing: 10) {
@@ -44,7 +47,14 @@ struct QuickSearchView: View {
                             }.frame(maxWidth: .infinity).padding(.vertical, 65)
                         }
                     }.padding(.horizontal, 12)
-                }.onChange(of: model.quickSelection) { _, value in withAnimation(.easeOut(duration: 0.1)) { proxy.scrollTo(value, anchor: .center) } }
+                }.onChange(of: model.quickSelection) { _, value in
+                    if model.quickResults.indices.contains(value) {
+                        withAnimation(.easeOut(duration: 0.1)) { proxy.scrollTo(model.quickResults[value].id) }
+                    }
+                }
+                .onChange(of: model.quickResults.map(\.id)) { _, ids in
+                    if let first = ids.first { proxy.scrollTo(first, anchor: .top) }
+                }
             }
             Divider()
             HStack(spacing: 12) {
@@ -58,17 +68,16 @@ struct QuickSearchView: View {
         .background(Design.panel)
         .overlay(alignment: .top) { LinearGradient(colors: [.clear, Design.amber.opacity(0.6), Design.cyan.opacity(0.3), .clear], startPoint: .leading, endPoint: .trailing).frame(height: 1) }
         .onChange(of: model.quickQuery) { model.quickSelection = 0; model.searchQuickly() }
-        .onMoveCommand { direction in
-            if direction == .down { model.quickSelection = min(model.quickResults.count - 1, model.quickSelection + 1) }
-            if direction == .up { model.quickSelection = max(0, model.quickSelection - 1) }
-        }
         .onExitCommand { model.hideSearch() }
     }
 }
 
-private struct QuickSearchField: NSViewRepresentable {
+struct QuickSearchField: NSViewRepresentable {
     @Binding var text: String
     let focusToken: UUID
+    let onNavigate: (Int) -> Void
+    let onSubmit: () -> Void
+    let onDismiss: () -> Void
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeNSView(context: Context) -> FocusTextField {
         let field = FocusTextField()
@@ -77,6 +86,7 @@ private struct QuickSearchField: NSViewRepresentable {
         field.isBordered = false; field.drawsBackground = false
         field.focusRingType = .none; field.usesSingleLineMode = true
         field.cell?.isScrollable = true
+        field.identifier = NSUserInterfaceItemIdentifier("quick-search")
         field.setAccessibilityIdentifier("quick-search")
         field.delegate = context.coordinator
         return field
@@ -96,9 +106,20 @@ private struct QuickSearchField: NSViewRepresentable {
         func controlTextDidChange(_ notification: Notification) {
             if let field = notification.object as? NSTextField { parent.text = field.stringValue }
         }
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            guard !textView.hasMarkedText() else { return false }
+            switch commandSelector {
+            case #selector(NSResponder.moveDown(_:)): parent.onNavigate(1)
+            case #selector(NSResponder.moveUp(_:)): parent.onNavigate(-1)
+            case #selector(NSResponder.insertNewline(_:)): parent.onSubmit()
+            case #selector(NSResponder.cancelOperation(_:)): parent.onDismiss()
+            default: return false
+            }
+            return true
+        }
     }
 }
-private final class FocusTextField: NSTextField {
+final class FocusTextField: NSTextField {
     override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); focusWhenReady() }
     func focusWhenReady() {
         DispatchQueue.main.async { [weak self] in

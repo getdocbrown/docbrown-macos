@@ -198,20 +198,21 @@ struct ToolEventView: View {
 }
 struct PRDetail: View {
     @EnvironmentObject var model: AppModel
-    let pr: Association
+    let pr: PullRequestSummary
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 Label("PULL REQUEST", systemImage: "arrow.triangle.pull").font(.system(size: 11, weight: .bold, design: .monospaced)).foregroundStyle(.orange)
                 Text(pr.title).font(.largeTitle.weight(.semibold))
                 if let url = URL(string: pr.url) { Link(pr.url, destination: url).font(.caption) }
+                Text(pr.involvement.joined(separator: " · ")).font(.callout.weight(.medium)).foregroundStyle(.secondary)
                 Text("The conversations behind this change").font(.title3)
                 Text("References and inferred relationships are labeled individually. A mention or matching branch alone does not prove contribution.").font(.callout).foregroundStyle(.secondary)
                 ForEach(model.visibleSessions.sorted { $0.started < $1.started }) { session in
                     VStack(alignment: .leading, spacing: 12) {
                         HStack { Text(DateText.display(session.started)).font(.caption.monospaced()); Spacer(); Text(session.agent).font(.caption).foregroundStyle(.secondary) }
                         Button(session.title.isEmpty ? "Untitled conversation" : session.title) { model.select(session.id) }.font(.headline).buttonStyle(.plain).foregroundStyle(.tint)
-                        ForEach(model.pullRequests.filter { $0.sessionID == session.id && $0.value == pr.value }) { relation in
+                        ForEach(model.pullRequests.filter { $0.sessionID == session.id && $0.value == pr.url }) { relation in
                             Label(relation.confidence, systemImage: relation.confidence == "Confirmed" ? "checkmark.seal" : "info.circle").font(.caption.weight(.semibold))
                             Text(relation.evidence).font(.caption).foregroundStyle(.secondary)
                         }

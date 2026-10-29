@@ -15,4 +15,11 @@ jobs:
       - name: Publish verified bundle
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" build/DocBrown-*-macOS.zip build/SHA256SUMS.txt --verify-tag --title "DocBrown $GITHUB_REF_NAME" --notes-file CHANGELOG.md
+        run: |
+          awk -v version="${GITHUB_REF_NAME#v}" '
+            $0 == "## " version { found=1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > build/release-notes.md
+          test -s build/release-notes.md
+          gh release create "$GITHUB_REF_NAME" build/DocBrown-*-macOS.zip build/SHA256SUMS.txt --verify-tag --title "DocBrown $GITHUB_REF_NAME" --notes-file build/release-notes.md

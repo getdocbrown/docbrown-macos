@@ -4,10 +4,9 @@ import SwiftUI
     @NSApplicationDelegateAdaptor(ApplicationDelegate.self) private var delegate
     @StateObject private var model = AppModel.shared
     var body: some Scene {
-        MenuBarExtra("DocBrown", systemImage: "car.side") {
+        MenuBarExtra {
             Button("Search History…  \(model.hotkeyLabel)") { model.showSearch() }
-            Button("Open Library") { model.openLibrary() }
-            Button("Set Up Capture…") { model.openSetup() }
+            Button("Open DocBrown…") { model.openLibrary() }
             Divider()
             Text("\(model.sessionCount.formatted()) conversations indexed")
             Text(model.importing ? "Importing history…" : model.status)
@@ -16,6 +15,10 @@ import SwiftUI
             Divider()
             SettingsLink()
             Button("Quit DocBrown") { NSApp.terminate(nil) }.keyboardShortcut("q")
+        } label: {
+            Image(nsImage: BrandAssets.menuBarImage)
+                .renderingMode(.original)
+                .accessibilityLabel("DocBrown")
         }
         Settings { SettingsView().environmentObject(model) }
             .commands {

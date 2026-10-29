@@ -46,6 +46,10 @@ public final class HistoryStore: @unchecked Sendable {
           kind TEXT NOT NULL, value TEXT NOT NULL, title TEXT NOT NULL, confidence TEXT NOT NULL,
           evidence TEXT NOT NULL, url TEXT NOT NULL DEFAULT '');
         CREATE INDEX IF NOT EXISTS associations_session ON associations(session_id);
+        CREATE TABLE IF NOT EXISTS pull_requests (
+          url TEXT PRIMARY KEY, title TEXT NOT NULL, author TEXT NOT NULL, state TEXT NOT NULL,
+          created_at TEXT NOT NULL, updated_at TEXT NOT NULL, viewer TEXT NOT NULL,
+          authored INTEGER NOT NULL DEFAULT 0, reviewed INTEGER NOT NULL DEFAULT 0, commented INTEGER NOT NULL DEFAULT 0);
         CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(body, content='messages', content_rowid='rowid', tokenize='unicode61');
         CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON messages BEGIN
           INSERT INTO messages_fts(rowid, body) VALUES (new.rowid, new.body); END;
@@ -122,30 +126,73 @@ public final class HistoryStore: @unchecked Sendable {
     private func decode(_ r: [String: String]) -> Session {
         Session(id: r["id"]!, agent: r["agent"]!, title: r["title"] ?? "", cwd: r["cwd"] ?? "", repository: r["repository"] ?? "", remote: r["remote"] ?? "", branch: r["branch"] ?? "", head: r["head"] ?? "", model: r["model"] ?? "", started: r["started"] ?? "", updated: r["updated"] ?? "", messageCount: Int(r["message_count"] ?? "0") ?? 0, snippet: r["snippet"] ?? "")
     }
-    public func search(_ query: String = "", agent: String = "", repository: String = "", limit: Int = 200, offset: Int = 0, includeInternal: Bool = false) throws -> [Session] {
+    public func search(_ query: String = "", agent: String = "", repository: String = "", limit: Int = 200, offset: Int = 0, includeInternal: Bool = false, rankByRelevance: Bool = false, projectRoots: [String] = []) throws -> [Session] {
         var predicates = ["EXISTS (SELECT 1 FROM messages WHERE session_id=s.id)"]
         var values: [Any] = []
+        var selectValues: [Any] = []
         if !includeInternal { predicates.append("s.source_kind<>'internal'") }
         if !agent.isEmpty { predicates.append("s.agent=?"); values.append(agent) }
-        if !repository.isEmpty { predicates.append("s.repository=?"); values.append(repository) }
-        let terms = query.split(whereSeparator: { $0.isWhitespace }).map { "\"" + $0.replacingOccurrences(of: "\"", with: "\"\"") + "\"" }
+        if !repository.isEmpty {
+            let roots = projectRoots.isEmpty ? [repository] : projectRoots
+            var scopes: [String] = []
+            for root in roots {
+                let path = URL(fileURLWithPath: root).standardizedFileURL.path
+                let escaped = path.replacingOccurrences(of: "!", with: "!!").replacingOccurrences(of: "%", with: "!%").replacingOccurrences(of: "_", with: "!_")
+                let children = (escaped == "/" ? "/" : escaped + "/") + "%"
+                scopes.append("(s.repository=? OR s.cwd=? OR s.repository LIKE ? ESCAPE '!' OR s.cwd LIKE ? ESCAPE '!')")
+                values.append(contentsOf: [path, path, children, children])
+            }
+            predicates.append("(" + scopes.joined(separator: " OR ") + ")")
+        }
+        let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let terms = text.split(whereSeparator: { $0.isWhitespace }).map { "\"" + $0.replacingOccurrences(of: "\"", with: "\"\"") + "\"" }
         var snippet = "'' AS snippet"
+        var ranking = ""
+        var prefix = ""
+        var joins = ""
+        var order = "s.updated DESC, s.id ASC"
         if !terms.isEmpty {
             // Treat user input as literal tokens: punctuation and quotes can never execute FTS syntax.
             let match = terms.joined(separator: " AND ")
-            snippet = "COALESCE((SELECT snippet(messages_fts,0,'','', ' … ',32) FROM messages_fts JOIN messages m ON m.rowid=messages_fts.rowid WHERE messages_fts MATCH ? AND m.session_id=s.id ORDER BY rank LIMIT 1),'') AS snippet"
-            values.insert(match, at: 0)
+            // Rank matching passages once for the whole query, rather than rescanning
+            // the full-text index separately for every conversation.
+            prefix = """
+            WITH search_hits AS MATERIALIZED (
+              SELECT m.session_id, m.rowid AS message_rowid, rank AS relevance
+              FROM messages_fts JOIN messages m ON m.rowid=messages_fts.rowid WHERE messages_fts MATCH ?
+            ), best_hits AS (
+              SELECT session_id,message_rowid,relevance FROM (
+                SELECT *, ROW_NUMBER() OVER(PARTITION BY session_id ORDER BY relevance,message_rowid) AS position
+                FROM search_hits
+              ) WHERE position=1
+            )
+            """
+            joins = "LEFT JOIN best_hits hits ON hits.session_id=s.id"
+            snippet = "COALESCE((SELECT snippet(messages_fts,0,'','', ' … ',32) FROM messages_fts WHERE messages_fts MATCH ? AND messages_fts.rowid=hits.message_rowid),'') AS snippet"
+            selectValues.append(contentsOf: [match, match])
             predicates.append("""
-            (s.id IN (SELECT m.session_id FROM messages_fts JOIN messages m ON m.rowid=messages_fts.rowid WHERE messages_fts MATCH ?)
+            (hits.session_id IS NOT NULL
             OR s.title LIKE ? ESCAPE '!' OR s.cwd LIKE ? ESCAPE '!' OR s.repository LIKE ? ESCAPE '!' OR s.branch LIKE ? ESCAPE '!' OR s.head LIKE ? ESCAPE '!'
             OR s.id IN (SELECT session_id FROM associations WHERE value LIKE ? ESCAPE '!' OR url LIKE ? ESCAPE '!'))
             """)
-            values.append(match)
-            let like = "%" + query.replacingOccurrences(of: "!", with: "!!").replacingOccurrences(of: "%", with: "!%").replacingOccurrences(of: "_", with: "!_") + "%"
+            let escaped = text.replacingOccurrences(of: "!", with: "!!").replacingOccurrences(of: "%", with: "!%").replacingOccurrences(of: "_", with: "!_")
+            let like = "%" + escaped + "%"
             values.append(contentsOf: Array(repeating: like, count: 7))
+            if rankByRelevance {
+                // Prefer titles, then the best matching passage. Recency only breaks ties;
+                // a long, active conversation should not outrank a more focused match.
+                ranking = """
+                , CASE WHEN s.title = ? COLLATE NOCASE THEN 0
+                       WHEN s.title LIKE ? ESCAPE '!' THEN 1
+                       WHEN s.title LIKE ? ESCAPE '!' THEN 2 ELSE 3 END AS title_priority,
+                COALESCE(hits.relevance,0) AS relevance
+                """
+                selectValues.append(contentsOf: [text, escaped + "%", like])
+                order = "title_priority ASC, relevance ASC, s.updated DESC, s.id ASC"
+            }
         }
         values.append(limit); values.append(offset)
-        return try rows("SELECT s.*, (SELECT count(*) FROM messages WHERE session_id=s.id) AS message_count, \(snippet) FROM sessions s WHERE \(predicates.joined(separator: " AND ")) ORDER BY s.updated DESC LIMIT ? OFFSET ?", values).map(decode)
+        return try rows("\(prefix) SELECT s.*, (SELECT count(*) FROM messages WHERE session_id=s.id) AS message_count, \(snippet) \(ranking) FROM sessions s \(joins) WHERE \(predicates.joined(separator: " AND ")) ORDER BY \(order) LIMIT ? OFFSET ?", selectValues + values).map(decode)
     }
     public func messages(_ sessionID: String, limit: Int = 250, offset: Int = 0) throws -> [Message] {
         try rows("SELECT * FROM messages WHERE session_id=? ORDER BY timestamp, source_path, source_line, rowid LIMIT ? OFFSET ?", [sessionID, limit, offset]).map { r in
@@ -181,7 +228,14 @@ public final class HistoryStore: @unchecked Sendable {
         return row.flatMap { Int($0["position"] ?? "") }
     }
 
-    public func repositories() throws -> [String] { try rows("SELECT DISTINCT repository FROM sessions WHERE repository<>'' ORDER BY repository").compactMap { $0["repository"] } }
+    public func repositories(includeInternal: Bool = false) throws -> [String] {
+        try rows("""
+        SELECT DISTINCT CASE WHEN repository<>'' THEN repository ELSE cwd END AS directory FROM sessions s
+        WHERE (repository<>'' OR cwd<>'') \(includeInternal ? "" : "AND source_kind<>'internal'")
+          AND EXISTS (SELECT 1 FROM messages WHERE session_id=s.id)
+        ORDER BY directory
+        """).compactMap { $0["directory"] }
+    }
     public func counts(includeInternal: Bool = false) throws -> (sessions: Int, messages: Int) {
         let filter = includeInternal ? "1=1" : "source_kind<>'internal'"
         let r = try rows("SELECT (SELECT count(*) FROM sessions WHERE \(filter) AND EXISTS(SELECT 1 FROM messages WHERE session_id=sessions.id)) AS sessions, (SELECT count(*) FROM messages WHERE session_id IN (SELECT id FROM sessions WHERE \(filter))) AS messages")[0]

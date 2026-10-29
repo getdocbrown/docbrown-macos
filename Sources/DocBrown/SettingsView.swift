@@ -1,10 +1,7 @@
 import SwiftUI
-import ServiceManagement
 
 struct SettingsView: View {
     @EnvironmentObject var model: AppModel
-    @State private var loginEnabled = SMAppService.mainApp.status == .enabled
-    @State private var loginError = ""
     var body: some View {
         Form {
             Section("Quick search") {
@@ -20,17 +17,16 @@ struct SettingsView: View {
                 Button("Open Quick Search") { model.showSearch() }
             }
             Section("Integrations") {
-                Button("Set Up Codex & Claude Code Capture…") { model.openSetup() }
+                Text("Codex and Claude Code history is imported automatically. No hooks or account setup are required.").font(.caption).foregroundStyle(.secondary)
+                Button("Capture richer Git history…") { model.openSetup() }
+                Text("Optional advanced integration: record the branch, commit, and changed-file list while you work, and update history sooner.").font(.caption).foregroundStyle(.secondary)
             }
             Section("Collection") {
                 Toggle("Include internal agent review sessions", isOn: $model.includeInternal)
                 Toggle("Automatically collect new conversations", isOn: $model.automatic)
                 Text("Checks for changes every 15 seconds while DocBrown is running. Closing the window keeps collection active in the menu bar.").font(.caption).foregroundStyle(.secondary)
-                Toggle("Open DocBrown at login", isOn: $loginEnabled).onChange(of: loginEnabled) { _, enabled in
-                    do { if enabled { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() } }
-                    catch { loginError = error.localizedDescription; loginEnabled = SMAppService.mainApp.status == .enabled }
-                }
-                if !loginError.isEmpty { Text(loginError).font(.caption).foregroundStyle(.red) }
+                Toggle("Open DocBrown at login", isOn: $model.openAtLogin)
+                if !model.loginItemError.isEmpty { Text(model.loginItemError).font(.caption).foregroundStyle(.secondary) }
                 Button("Import Transcript Folder…") { model.addFolder() }
                 if !model.customRoots.isEmpty {
                     ForEach(model.customRoots, id: \.self) { root in
@@ -39,7 +35,7 @@ struct SettingsView: View {
                 }
             }
             Section("Privacy & storage") {
-                Text("No telemetry. No cloud account. No transcript content leaves this Mac. GitHub lookup uses your existing gh login and sends repository names only.").font(.caption).foregroundStyle(.secondary)
+                Text("No telemetry. No cloud account. No transcript content leaves this Mac. GitHub lookup uses your existing gh login to check repository and pull request activity.").font(.caption).foregroundStyle(.secondary)
                 LabeledContent("Library") { Text(model.paths.directory.path).font(.caption).textSelection(.enabled) }
                 Button("Show Library in Finder") { NSWorkspace.shared.open(model.paths.directory) }
                 Text("Exclude working directories (one absolute path per line)").font(.caption)
@@ -54,7 +50,7 @@ struct SettingsView: View {
             if !model.importErrors.isEmpty {
                 Section("Import issues") { ForEach(model.importErrors, id: \.self) { Text($0).font(.caption).textSelection(.enabled) } }
             }
-            Section { Text("DocBrown 0.1.1 · Local-first conversation history").font(.caption).foregroundStyle(.secondary) }
+            Section { Text("DocBrown 0.1.2 · Local-first conversation history").font(.caption).foregroundStyle(.secondary) }
         }.formStyle(.grouped).frame(width: 620, height: 700)
     }
 }

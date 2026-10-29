@@ -1,10 +1,32 @@
 import SwiftUI
+import ServiceManagement
 #if canImport(DocBrownCore)
 import DocBrownCore
 #endif
 
 @MainActor final class AppModel: ObservableObject {
     static let shared = AppModel()
+    @Published var openAtLogin = UserDefaults.standard.object(forKey: "openAtLogin") as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(openAtLogin, forKey: "openAtLogin")
+            configureLoginItem()
+        }
+    }
+    @Published private(set) var loginItemError = ""
+    private func configureLoginItem() {
+        loginItemError = ""
+        do {
+            let status = SMAppService.mainApp.status
+            if openAtLogin {
+                if status != .enabled && status != .requiresApproval { try SMAppService.mainApp.register() }
+                if SMAppService.mainApp.status == .requiresApproval {
+                    loginItemError = "Allow DocBrown in System Settings → General → Login Items to finish enabling launch at login."
+                }
+            } else if status == .enabled || status == .requiresApproval {
+                try SMAppService.mainApp.unregister()
+            }
+        } catch { loginItemError = error.localizedDescription }
+    }
     private var controller: AppController?
     private var hookObserver: NSObjectProtocol?
     private var pendingHookScan: Task<Void, Never>?
@@ -56,6 +78,10 @@ import DocBrownCore
         guard quickResults.indices.contains(quickSelection) else { return }
         openLibrary(sessionID: quickResults[quickSelection].id)
     }
+    func moveQuickSelection(_ delta: Int) {
+        guard !quickResults.isEmpty else { return }
+        quickSelection = max(0, min(quickResults.count - 1, quickSelection + delta))
+    }
     func searchQuickly() {
         quickSearchTask?.cancel()
         guard let reader else { return }
@@ -65,7 +91,7 @@ import DocBrownCore
             try? await Task.sleep(for: .milliseconds(120))
             guard !Task.isCancelled else { return }
             do {
-                let results = try await Task.detached(priority: .userInitiated) { try reader.search(text, limit: 30, includeInternal: includeInternal) }.value
+                let results = try await Task.detached(priority: .userInitiated) { try reader.search(text, limit: 30, includeInternal: includeInternal, rankByRelevance: true) }.value
                 guard !Task.isCancelled else { return }
                 quickResults = results; quickSelection = 0; quickSearching = false
             } catch { if !Task.isCancelled { self.error = error.localizedDescription; quickSearching = false } }
@@ -81,7 +107,14 @@ import DocBrownCore
 
     @Published var sessions: [Session] = []
     @Published var repositories: [String] = []
+    @Published var projects: [HistoryProject] = []
     @Published var pullRequests: [Association] = []
+    @Published var pullRequestItems: [PullRequestSummary] = []
+    @Published var prIncludeReferences = false
+    @Published var prOrganization = "" {
+        didSet { if oldValue != prOrganization { prRepository = "" } }
+    }
+    @Published var prRepository = ""
     @Published var query = ""
     @Published var agent = ""
     @Published var repository = ""
@@ -138,13 +171,18 @@ import DocBrownCore
         let ids = Set(pullRequests.filter { $0.value == selectedPR }.map(\.sessionID))
         return sessions.filter { ids.contains($0.id) }
     }
-    var uniquePRs: [Association] {
-        var seen = Set<String>()
-        return pullRequests.filter { seen.insert($0.value).inserted }
+    var uniquePRs: [PullRequestSummary] { PullRequestSummary.filtered(pullRequestItems, includeReferences: true) }
+    var filteredPullRequests: [PullRequestSummary] {
+        PullRequestSummary.filtered(pullRequestItems, includeReferences: prIncludeReferences, organization: prOrganization, repository: prRepository)
+    }
+    var prOrganizations: [String] { Array(Set(pullRequestItems.map(\.organization))).sorted() }
+    var prRepositories: [String] {
+        Array(Set(pullRequestItems.filter { prOrganization.isEmpty || $0.organization == prOrganization }.map(\.repository))).sorted()
     }
 
     func start() {
         guard watchTask == nil else { return }
+        configureLoginItem()
         controller = AppController(model: self)
         hookObserver = DistributedNotificationCenter.default().addObserver(forName: HookCapture.notification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in
@@ -171,6 +209,8 @@ import DocBrownCore
     func reload(debounce: Bool = false, loadMore: Bool = false) {
         searchTask?.cancel()
         let query = query, agent = agent, repository = repository, includeInternal = includeInternal
+        let projectRoots = projects.first { $0.id == repository }?.roots ?? []
+        let excluded = excluded
         let limit = loadMore ? sessions.count + 200 : max(200, selectedPR == nil ? 200 : 10000)
         guard let reader else { return }
         searchTask = Task {
@@ -178,11 +218,14 @@ import DocBrownCore
             guard !Task.isCancelled else { return }
             do {
                 let result = try await Task.detached(priority: .userInitiated) {
-                    (try reader.search(query, agent: agent, repository: repository, limit: limit, includeInternal: includeInternal), try reader.repositories(), try reader.associations(includeInternal: includeInternal), try reader.counts(includeInternal: includeInternal))
+                    (try reader.search(query, agent: agent, repository: repository, limit: limit, includeInternal: includeInternal, projectRoots: projectRoots),
+                     ProjectCatalog.merged(discovered: try reader.repositories(includeInternal: includeInternal), configured: ProjectCatalog.codexProjects(), excluded: excluded),
+                     try reader.associations(includeInternal: includeInternal), try reader.counts(includeInternal: includeInternal), try reader.pullRequestSummaries(includeInternal: includeInternal))
                 }.value
                 guard !Task.isCancelled else { return }
-                sessions = result.0; repositories = result.1; pullRequests = result.2
+                sessions = result.0; projects = result.1; repositories = result.1.map(\.id); pullRequests = result.2
                 sessionCount = result.3.sessions; messageCount = result.3.messages
+                pullRequestItems = result.4
                 canLoadMoreSessions = sessions.count == limit
             } catch { self.error = error.localizedDescription }
         }

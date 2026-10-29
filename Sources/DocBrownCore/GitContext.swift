@@ -68,14 +68,36 @@ public actor AttributionService {
     public func refresh() throws -> String {
         guard let gh else { return "Install GitHub CLI (gh) to discover pull requests. Transcript links and git evidence still work locally." }
         guard run(gh, ["auth", "status"], 10) != nil else { return "GitHub CLI is not signed in. Run gh auth login, then refresh GitHub relationships." }
+        let identity = run(gh, ["api", "user", "--jq", ".login"], 10) ?? ""
+        let viewer = identity.range(of: "^[A-Za-z0-9][A-Za-z0-9-]*$", options: .regularExpression) == nil ? "" : identity
+        if !viewer.isEmpty {
+            try store.execute("UPDATE pull_requests SET authored=0,reviewed=0,commented=0 WHERE viewer<>? COLLATE NOCASE", [viewer])
+        }
+        let fields = "number,title,url,headRefName,author,createdAt,updatedAt,state"
         let sessions = try store.rows("SELECT * FROM sessions WHERE remote<>'' AND source_kind<>'internal'")
         let grouped = Dictionary(grouping: sessions, by: { GitContext.githubSlug($0["remote"] ?? "") ?? "" })
         var linked = 0
         var failures = 0
+        if !viewer.isEmpty {
+            // Participation is account-wide: work in a parent project folder may not
+            // have a Git remote in its transcript, and new PRs may have no transcript yet.
+            for activity in ["author", "reviewed-by", "commenter"] {
+                // Save each page immediately; waiting for one large CLI response can
+                // time out and hide every recent result even when page one succeeded.
+                for page in 1...5 {
+                    try Task.checkCancellation()
+                    guard let text = run(gh, ["api", "--method", "GET", "search/issues", "-f", "q=is:pr \(activity):\(viewer)", "-f", "sort=updated", "-f", "order=desc", "-F", "per_page=100", "-F", "page=\(page)", "--jq", ".items | map({url: .html_url, title, author: .user, createdAt: .created_at, updatedAt: .updated_at, state})"], 25),
+                          let data = text.data(using: .utf8), let prs = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { failures += 1; break }
+                    for pr in prs { try store.recordPullRequest(pr, viewer: viewer, reviewed: activity == "reviewed-by", commented: activity == "commenter") }
+                    if prs.count < 100 { break }
+                }
+            }
+        }
         for (slug, group) in grouped where !slug.isEmpty {
             try Task.checkCancellation()
-            guard let text = run(gh, ["pr", "list", "--repo", slug, "--state", "all", "--limit", "500", "--json", "number,title,url,headRefName,mergeCommit"], 25), let data = text.data(using: .utf8), let prs = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { failures += 1; continue }
+            guard let text = run(gh, ["pr", "list", "--repo", slug, "--state", "all", "--search", "sort:updated-desc", "--limit", "500", "--json", fields], 25), let data = text.data(using: .utf8), let prs = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { failures += 1; continue }
             for pr in prs {
+                try store.recordPullRequest(pr, viewer: viewer)
                 let branch = pr["headRefName"] as? String ?? ""
                 let url = pr["url"] as? String ?? ""
                 let number = pr["number"] as? Int ?? 0
@@ -102,12 +124,13 @@ public actor AttributionService {
                           let data = text.data(using: .utf8), let matches = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { continue }
                     for pr in matches {
                         guard let url = pr["html_url"] as? String else { continue }
+                        try store.recordPullRequest(pr, viewer: viewer)
                         try store.addAssociation(sessionID: sessionID, kind: "pr", value: url, title: pr["title"] as? String ?? url, confidence: "Confirmed", evidence: "Git commit output in this transcript reports \(commit.value.prefix(12)); GitHub confirms that commit belongs to this PR.", url: url)
                         linked += 1
                     }
                 }
             }
         }
-        return "Refreshed \(grouped.keys.filter { !$0.isEmpty }.count) repositories; \(linked) session relationships.\(failures > 0 ? " \(failures) repositories could not be read." : "")"
+        return "Refreshed \(grouped.keys.filter { !$0.isEmpty }.count) repositories; \(linked) session relationships.\(failures > 0 ? " \(failures) GitHub lookups could not be completed." : "")\(viewer.isEmpty ? " GitHub identity unavailable; participation uses cached activity and confirmed local contributions." : "")"
     }
 }

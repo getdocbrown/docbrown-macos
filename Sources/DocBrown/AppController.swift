@@ -11,6 +11,7 @@ import Carbon
     private var hotKey: EventHotKeyRef?
     private var eventHandler: EventHandlerRef?
     private var localKeys: Any?
+    private var lastHotkeyInvocation = Date.distantPast
 
     init(model: AppModel) {
         self.model = model
@@ -26,6 +27,9 @@ import Carbon
         // WindowServer's global hot-key routing. Handle the same chord locally as well.
         localKeys = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self else { return event }
+            if let panel = self.searchPanel, panel.isVisible,
+               event.window === panel || panel.isKeyWindow,
+               panel.handleSearchKey(event) { return nil }
             let flags = event.modifierFlags.intersection([.command, .control, .option, .shift])
             let choice = self.model.hotkeyChoice
             let expected: NSEvent.ModifierFlags = choice == "command-d" ? [.command] : choice == "control-option-command-d" ? [.control,.option,.command] : choice == "control-shift-d" ? [.control,.shift] : [.control,.option]
@@ -46,16 +50,16 @@ import Carbon
     }
 
     func toggleSearch() {
+        // Carbon and directly delivered key events can describe the same press.
+        guard Date().timeIntervalSince(lastHotkeyInvocation) > 0.2 else { return }
+        lastHotkeyInvocation = Date()
         if searchPanel?.isVisible == true { searchPanel?.orderOut(nil); return }
         showSearch()
     }
     func showSearch() {
         if searchPanel == nil {
-            let panel = SearchPanel(contentRect: NSRect(x: 0, y: 0, width: 760, height: 540), styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
-            panel.navigate = { [weak model] delta in
-                guard let model, !model.quickResults.isEmpty else { return }
-                model.quickSelection = max(0, min(model.quickResults.count - 1, model.quickSelection + delta))
-            }
+            let panel = SearchPanel(contentRect: NSRect(x: 0, y: 0, width: 760, height: 540), styleMask: [.titled, .fullSizeContentView, .nonactivatingPanel], backing: .buffered, defer: false)
+            panel.navigate = { [weak model] delta in model?.moveQuickSelection(delta) }
             panel.choose = { [weak model] in model?.openQuickSelection() }
             panel.title = "Search DocBrown"
             panel.titleVisibility = .hidden; panel.titlebarAppearsTransparent = true
@@ -63,7 +67,7 @@ import Carbon
             panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
             panel.standardWindowButton(.zoomButton)?.isHidden = true
             panel.isFloatingPanel = true; panel.level = .floating
-            panel.hidesOnDeactivate = true; panel.isReleasedWhenClosed = false
+            panel.hidesOnDeactivate = false; panel.isReleasedWhenClosed = false
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient, .ignoresCycle]
             panel.isMovableByWindowBackground = true
             panel.contentView = NSHostingView(rootView: QuickSearchView().environmentObject(model))
@@ -76,19 +80,29 @@ import Carbon
             let visible = screen.visibleFrame
             searchPanel?.setFrameOrigin(NSPoint(x: visible.midX - 380, y: visible.midY - 190))
         }
-        NSApp.activate(ignoringOtherApps: true)
+        // A nonactivating panel takes keyboard focus without raising the library
+        // or switching away from the application the user is working in.
         searchPanel?.makeKeyAndOrderFront(nil)
+        searchPanel?.contentView?.layoutSubtreeIfNeeded()
+        if let content = searchPanel?.contentView, let field = searchField(in: content) {
+            searchPanel?.makeFirstResponder(field)
+        }
+    }
+    private func searchField(in view: NSView) -> NSTextField? {
+        if let field = view as? NSTextField, field.identifier?.rawValue == "quick-search" { return field }
+        for child in view.subviews { if let field = searchField(in: child) { return field } }
+        return nil
     }
     func hideSearch() { searchPanel?.orderOut(nil) }
     func openSetup() {
         hideSearch()
         if setupWindow == nil {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 650, height: 650), styleMask: [.titled, .closable], backing: .buffered, defer: false)
-            window.title = "Set Up Capture"
             window.isReleasedWhenClosed = false
-            window.contentView = NSHostingView(rootView: IntegrationSetupView().environmentObject(model))
             window.center(); setupWindow = window
         }
+        setupWindow?.title = "Capture Richer Git History"
+        setupWindow?.contentView = NSHostingView(rootView: IntegrationSetupView().environmentObject(model))
         NSApp.activate(ignoringOtherApps: true); setupWindow?.makeKeyAndOrderFront(nil)
     }
     func openLibrary(sessionID: String? = nil) {
@@ -111,20 +125,26 @@ final class SearchPanel: NSPanel {
     var navigate: ((Int) -> Void)?
     var choose: (() -> Void)?
     override func sendEvent(_ event: NSEvent) {
-        if event.type == .keyDown && event.modifierFlags.intersection([.command,.control,.option]).isEmpty {
+        if handleSearchKey(event) { return }
+        super.sendEvent(event)
+    }
+    @discardableResult func handleSearchKey(_ event: NSEvent) -> Bool {
+        if let editor = firstResponder as? NSTextView, editor.hasMarkedText() { return false }
+        if event.type == .keyDown && event.modifierFlags.intersection([.command,.control,.option,.shift]).isEmpty {
             switch event.keyCode {
-            case 125: navigate?(1); return
-            case 126: navigate?(-1); return
-            case 36, 76: choose?(); return
-            case 53: orderOut(nil); return
+            case 125: navigate?(1); return true
+            case 126: navigate?(-1); return true
+            case 36, 76: choose?(); return true
+            case 53: orderOut(nil); return true
             default: break
             }
         }
-        super.sendEvent(event)
+        return false
     }
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
     override func cancelOperation(_ sender: Any?) { orderOut(nil) }
+    override func resignKey() { super.resignKey(); orderOut(nil) }
 }
 
 @MainActor final class ApplicationDelegate: NSObject, NSApplicationDelegate {
@@ -134,6 +154,8 @@ final class SearchPanel: NSPanel {
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        AppModel.shared.openLibrary(); return false
+        // Launch Services, login startup, and background app inspections can all
+        // send reopen events. Only an explicit menu action or hotkey opens UI.
+        return false
     }
 }
