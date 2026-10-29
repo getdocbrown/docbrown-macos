@@ -1,0 +1,18 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v*'
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift test
+      - run: ./scripts/build-release.sh
+      - name: Publish verified bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" build/DocBrown-0.1.0-macOS.zip build/SHA256SUMS.txt --verify-tag --title "DocBrown $GITHUB_REF_NAME" --notes-file CHANGELOG.md
