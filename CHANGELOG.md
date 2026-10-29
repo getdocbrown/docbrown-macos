@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.3
+
+- Native Update DocBrown action in the menu bar and Settings.
+- Quiet automatic update checks every six hours, with an update-available menu label and no automatic focus changes.
+- Signed update archives and signed release feeds, with verification before extraction.
+- User-controlled download, installation, and restart through Sparkle; imports finish safely before the app exits.
+- Automated release publishing uploads the complete signed feed and archive before making a release available.
+
+This release is ad-hoc signed and is not Apple-notarized. It is the first updater-enabled version; earlier versions require one manual install.
+
 ## 0.1.2
 
 - Quieter menu bar operation: opening at login is on by default, Command–D opens only quick search, and background launches no longer take focus.

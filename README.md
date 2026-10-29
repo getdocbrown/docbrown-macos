@@ -4,15 +4,21 @@
 
 DocBrown is a native, local-first macOS menu bar app for finding the conversations behind your code. It imports Codex and Claude Code history, connects it to git and pull requests, and makes it searchable without an account or a hosted service.
 
-## Run v0.1.2
+## Run v0.1.3
 
-Download **DocBrown-0.1.2-macOS.zip** from [Releases](https://github.com/getdocbrown/docbrown-macos/releases), unzip it, and move **DocBrown.app** to Applications. Requires macOS 14 Sonoma or newer; the app and bundled CLI support Apple silicon and Intel.
+Download **DocBrown-0.1.3-macOS.zip** from [Releases](https://github.com/getdocbrown/docbrown-macos/releases), unzip it, and move **DocBrown.app** to Applications. Requires macOS 14 Sonoma or newer; the app and bundled CLI support Apple silicon and Intel.
 
 Open DocBrown, then press **⌘D** from any app. Type to search, use **↑/↓** to select a result, and press **Return** to open its conversation. **Escape** dismisses quick search. The default shortcut takes over Command–D while DocBrown runs; change it in Settings if you use that shortcut elsewhere.
 
 DocBrown lives in the menu bar, with no Dock icon. Choose **Open DocBrown…** for the full browser, repository and agent filters, readable transcripts, and pull request timelines. Closing a window keeps collection running. Choose **Quit DocBrown** in the menu bar to stop it. Launch at login is enabled by default and can be turned off in Settings. Launch and reopen events stay quiet. Quick search opens only from its shortcut or menu action, as a nonactivating panel; the full library opens only from **Open DocBrown…** or by choosing a result.
 
-The v0.1.2 download is ad-hoc signed, not Apple-notarized. A downloaded copy may require approval in macOS **System Settings → Privacy & Security → Open Anyway**. Locally built copies run directly. There is no Developer ID certificate bundled with the project.
+The v0.1.3 download is ad-hoc signed, not Apple-notarized. A downloaded copy may require approval in macOS **System Settings → Privacy & Security → Open Anyway**. Locally built copies run directly. There is no Developer ID certificate bundled with the project.
+
+## Updates
+
+Choose **Update DocBrown…** from the menu bar or Settings. Automatic checks are on by default and run quietly every six hours; an available version changes the menu label without opening a window or taking focus. You choose when to download, install, and restart. Turn off automatic checks in Settings if preferred.
+
+Sparkle 2.10.1 verifies the signed feed and update archive before extraction. Updates preserve the library, preferences, and hook configuration. The first updater-enabled release is 0.1.3: versions 0.1.2 and earlier need one manual installation. Downloads and update metadata are hosted on GitHub; no GitHub login is needed for updates.
 
 ## Connect your history
 
@@ -83,7 +89,7 @@ swift test
 open build/DocBrown.app
 ```
 
-The release script builds a universal app and CLI, signs the bundle locally, and produces `build/DocBrown-0.1.2-macOS.zip` plus checksums. Regenerate the checked-in Xcode project with `python3 scripts/generate-project.py` after adding source files. See [architecture and verification](docs/ARCHITECTURE.md).
+The release script builds a universal app and CLI, signs the bundle locally, and produces `build/DocBrown-0.1.3-macOS.zip` plus checksums. Sparkle is pinned in both package manifests. Regenerate the checked-in Xcode project with `python3 scripts/generate-project.py` after adding source files. See [architecture and verification](docs/ARCHITECTURE.md).
 
 ## CLI
 
@@ -99,6 +105,14 @@ The app includes `Contents/Helpers/docbrown`. You can call it directly or add yo
 
 `import [FOLDER...]` performs an incremental import; `github` refreshes PR relationships. Use `--library PATH` for a separate library. Swift Package Manager names the standalone development executable `docbrown-cli` to avoid a case-insensitive filesystem collision with `DocBrown`.
 
-## v0.1.2 boundaries
+## v0.1.3 boundaries
 
 This release provides keyword search, not semantic search or generated answers. It does not recover encrypted reasoning, cloud-only conversations, attachments that are unavailable locally, or git provenance absent from both the transcript and hooks. Attribution uncertainty is shown rather than invented. MCP, cloud sync, and team features are outside this release.
+
+## Publishing updates
+
+Run `scripts/build-release.sh`, then `scripts/generate-appcast.sh`. Local signing uses the `ai.docbrown.macos.sparkle` Keychain account. CI uses the repository's `SPARKLE_PRIVATE_KEY` secret; never commit or log this key. The public key is embedded in `Resources/Info.plist`. Back up the Keychain securely: replacing the signing key requires an intentional migration.
+
+The release workflow tests the app and the real Sparkle installer against isolated fixtures, generates a signed `appcast.xml`, uploads the complete release as a draft, then publishes it. The stable feed URL is `https://github.com/getdocbrown/docbrown-macos/releases/latest/download/appcast.xml`. Do not edit the generated XML or ZIP after signing, and do not publish a stable release without its signed feed. `CFBundleVersion` must increase for every release.
+
+The current ad-hoc build uses a library-validation exception to load Sparkle. When Developer ID signing and notarization are introduced, remove that exception and verify an upgrade from the previous public build. Sparkle and its third-party license notices are bundled in the app.

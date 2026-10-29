@@ -3,6 +3,7 @@ import SwiftUI
 @main struct DocBrownApp: App {
     @NSApplicationDelegateAdaptor(ApplicationDelegate.self) private var delegate
     @StateObject private var model = AppModel.shared
+    @StateObject private var updater = AppUpdater.shared
     var body: some Scene {
         MenuBarExtra {
             Button("Search History…  \(model.hotkeyLabel)") { model.showSearch() }
@@ -14,6 +15,7 @@ import SwiftUI
             Button("Import Transcript Folder…") { model.addFolder() }
             Divider()
             SettingsLink()
+            Button(updater.menuTitle) { updater.checkForUpdates() }.disabled(!updater.canCheck)
             Button("Quit DocBrown") { NSApp.terminate(nil) }.keyboardShortcut("q")
         } label: {
             Image(nsImage: BrandAssets.menuBarImage)

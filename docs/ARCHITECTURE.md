@@ -1,6 +1,6 @@
 # Architecture and verification
 
-DocBrown has three targets: a shared Swift core, the SwiftUI/AppKit menu bar application, and a small CLI. SQLite and system frameworks are the only dependencies. Swift Package Manager runs the core and AppKit keyboard tests; the checked-in Xcode project produces the native app.
+DocBrown has three targets: a shared Swift core, the SwiftUI/AppKit menu bar application, and a small CLI. The app embeds pinned Sparkle 2.10.1; the shared history core uses SQLite and system frameworks only. Swift Package Manager runs the core and AppKit keyboard tests; the checked-in Xcode project produces the native app.
 
 ## Capture and storage
 
@@ -39,3 +39,11 @@ The core suite exercises:
 - Hook installation, idempotency, preservation of unrelated settings, exact removal, backups, invalid configuration rejection, and persisted git observations.
 
 Release checks include the automated suites, Xcode universal app and CLI builds, bundle signature verification, and downloaded-asset checksums. Live import, SQLite integrity, and native UI checks also supported the initial build; routine feedback fixes are verified without opening windows or taking keyboard focus. No user transcripts or runtime databases are part of the repository or release archive.
+
+## Updates
+
+`AppUpdater` owns one Sparkle updater and publishes native menu/settings state. Its gentle-reminder delegate handles all scheduled update reminders, including launch-time reminders, without showing windows. Explicit checks use Sparkle's standard native UI. Automatic downloads/installations are disabled; automatic checks follow Sparkle's persisted preference and six-hour scheduler.
+
+The appcast and archive use Ed25519 signatures, with pre-extraction verification. The app embeds only the public key. Releases are published only after all files are uploaded to a draft. A writable install is replaced in place by Sparkle's helper; a user-owned library is not part of the update payload. Termination during import cancels the current import and waits for its checkpoint before allowing exit.
+
+`scripts/test-updater.py` uses Sparkle's real installer and generated app fixtures. It verifies installation, bad archive rejection, bad feed rejection, and download failure without visible UI or touching the installed app. The core test suite also interrupts and resumes an import, checking message counts, archive bytes, and database integrity.

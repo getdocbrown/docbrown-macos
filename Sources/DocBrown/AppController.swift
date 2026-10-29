@@ -151,6 +151,15 @@ final class SearchPanel: NSPanel {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         AppModel.shared.start()
+        AppUpdater.shared.start()
+    }
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard AppModel.shared.importing else { return .terminateNow }
+        Task { @MainActor in
+            await AppModel.shared.finishImportBeforeQuitting()
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

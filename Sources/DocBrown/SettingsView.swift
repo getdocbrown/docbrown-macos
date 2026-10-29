@@ -2,8 +2,16 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var model: AppModel
+    @ObservedObject private var updater = AppUpdater.shared
     var body: some View {
         Form {
+            Section("Updates") {
+                Toggle("Automatically check for updates", isOn: Binding(get: { updater.automaticChecks }, set: updater.setAutomaticChecks))
+                Text("Checks quietly every six hours. You choose when to install and restart.").font(.caption).foregroundStyle(.secondary)
+                Button(updater.menuTitle) { updater.checkForUpdates() }.disabled(!updater.canCheck)
+                if let checked = updater.lastChecked { Text("Last checked \(checked.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(.secondary) }
+                if let error = updater.lastError { Text(error).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
+            }
             Section("Quick search") {
                 Picker("Global shortcut", selection: $model.hotkeyChoice) {
                     Text("⌘D — Command–D (default)").tag("command-d")
@@ -50,7 +58,7 @@ struct SettingsView: View {
             if !model.importErrors.isEmpty {
                 Section("Import issues") { ForEach(model.importErrors, id: \.self) { Text($0).font(.caption).textSelection(.enabled) } }
             }
-            Section { Text("DocBrown 0.1.2 · Local-first conversation history").font(.caption).foregroundStyle(.secondary) }
+            Section { Text("DocBrown 0.1.3 · Local-first conversation history").font(.caption).foregroundStyle(.secondary) }
         }.formStyle(.grouped).frame(width: 620, height: 700)
     }
 }

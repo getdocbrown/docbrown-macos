@@ -8,12 +8,16 @@ archive="DocBrown-${version}-macOS.zip"
 mkdir -p build
 python3 scripts/generate-project.py
 xcodebuild -project DocBrown.xcodeproj -scheme DocBrown -configuration Release -derivedDataPath "$PWD/build/DerivedData" ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO build
-swift build --disable-sandbox -c release --arch arm64 --arch x86_64 --product docbrown-cli
+# Separate native SwiftPM builds avoid invoking Xcode's SDK-cache service a
+# second time for this Foundation-only helper.
+swift build --disable-sandbox -c release --arch arm64 --product docbrown-cli
+swift build --disable-sandbox -c release --arch x86_64 --product docbrown-cli
+lipo -create .build/arm64-apple-macosx/release/docbrown-cli .build/x86_64-apple-macosx/release/docbrown-cli -output build/docbrown-universal
 rm -rf build/DocBrown.app
 ditto build/DerivedData/Build/Products/Release/DocBrown.app build/DocBrown.app
 mkdir -p build/DocBrown.app/Contents/Helpers
-cp .build/apple/Products/Release/docbrown-cli build/DocBrown.app/Contents/Helpers/docbrown
-codesign --force --deep --sign - build/DocBrown.app
+cp build/docbrown-universal build/DocBrown.app/Contents/Helpers/docbrown
+codesign --force --deep --options runtime --entitlements Resources/DocBrown.entitlements --sign - build/DocBrown.app
 codesign --verify --deep --strict build/DocBrown.app
 rm -f "build/$archive"
 ditto -c -k --keepParent build/DocBrown.app "build/$archive"

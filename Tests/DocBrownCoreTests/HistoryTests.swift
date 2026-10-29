@@ -99,6 +99,25 @@ final class HistoryTests: XCTestCase {
         _ = await TranscriptImporter(store: store).scan(roots: [input]); XCTAssertEqual(try store.counts().messages, 3)
         XCTAssertEqual(try store.search("Incremental").count, 1)
     }
+    func testCanceledImportResumesWithoutLosingOrDuplicatingMessages() async throws {
+        let path = try writeCodex()
+        let handle = try FileHandle(forWritingTo: path)
+        try handle.seekToEnd()
+        for index in 0..<2000 {
+            try handle.write(contentsOf: line(["type":"response_item","payload":["type":"message","role":"assistant","content":[["text":"Import checkpoint \(index)"]]]]))
+        }
+        try handle.close()
+        let importer = TranscriptImporter(store: store)
+        let running = Task { await importer.scan(roots: [input]) }
+        try await Task.sleep(for: .milliseconds(10))
+        running.cancel()
+        _ = await running.value
+        _ = await importer.scan(roots: [input])
+        XCTAssertEqual(try store.counts().messages, 2002)
+        XCTAssertEqual(try store.rows("PRAGMA integrity_check").first?["integrity_check"], "ok")
+        let archive = try XCTUnwrap(store.rows("SELECT raw_name FROM sources").first?["raw_name"])
+        XCTAssertEqual(try Data(contentsOf: store.paths.raw.appendingPathComponent(archive)), try Data(contentsOf: path))
+    }
     func testClaudeBlocksAndModels() async throws {
         let path = input.appendingPathComponent("claude.jsonl")
         var data = try line(["type":"user","sessionId":"claude-1","uuid":"u1","cwd":"/missing/project","gitBranch":"fix","timestamp":"2026-01-02T10:00:00Z","message":["role":"user","content":"Fix authentication"]])

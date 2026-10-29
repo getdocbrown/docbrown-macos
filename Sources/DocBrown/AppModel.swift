@@ -72,6 +72,12 @@ import DocBrownCore
         }
     }
     func showSearch() { controller?.showSearch() }
+    func finishImportBeforeQuitting() async {
+        watchTask?.cancel()
+        pendingHookScan?.cancel()
+        importTask?.cancel()
+        await importTask?.value
+    }
     func hideSearch() { controller?.hideSearch() }
     func openLibrary(sessionID: String? = nil) { controller?.openLibrary(sessionID: sessionID) }
     func openQuickSelection() {
