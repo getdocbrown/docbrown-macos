@@ -96,9 +96,11 @@ public enum HookCapture {
         let id = object["session_id"] as? String ?? object["thread_id"] as? String ?? object["thread-id"] as? String ?? ""
         let cwd = object["cwd"] as? String ?? ""
         guard !id.isEmpty, !cwd.isEmpty else { return }
+        let normalizedID = (provider == .codex ? Agent.codex.rawValue : Agent.claude.rawValue) + ":" + id
+        guard CapturePolicy.permits(sessionID: normalizedID, cwd: cwd, paths: paths) else { return }
         let directory = paths.directory.appendingPathComponent("HookEvents", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-        var event: [String: Any] = ["id": UUID().uuidString, "session_id": (provider == .codex ? Agent.codex.rawValue : Agent.claude.rawValue) + ":" + id, "cwd": cwd, "timestamp": ISO8601DateFormatter().string(from: Date()), "event": object["hook_event_name"] as? String ?? "Activity"]
+        var event: [String: Any] = ["id": UUID().uuidString, "session_id": normalizedID, "cwd": cwd, "timestamp": ISO8601DateFormatter().string(from: Date()), "event": object["hook_event_name"] as? String ?? "Activity"]
         if let context = GitContext.resolve(cwd) {
             event["repository"] = context.root; event["remote"] = context.remote
             event["branch"] = LocalCommand.run("/usr/bin/git", ["-C", cwd, "branch", "--show-current"], timeout: 1) ?? ""

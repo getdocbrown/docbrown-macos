@@ -157,6 +157,7 @@ import DocBrownCore
             }
         }
         refreshHookStatuses()
+        try? CapturePolicy.saveExclusions(excluded, paths: paths)
         reload()
         scan()
         watchTask = Task { [weak self] in
@@ -276,6 +277,8 @@ import DocBrownCore
     }
     func saveExclusions() {
         UserDefaults.standard.set(excluded, forKey: "excluded")
+        do { try CapturePolicy.saveExclusions(excluded, paths: paths) }
+        catch { self.error = error.localizedDescription }
         status = "Exclusions saved. Existing history can be removed from each conversation."
     }
     func deleteSelected() {

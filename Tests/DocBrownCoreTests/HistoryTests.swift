@@ -208,6 +208,13 @@ final class HistoryTests: XCTestCase {
         try store.deleteSession("Codex:test-codex")
         XCTAssertEqual(try store.rows("SELECT * FROM git_observations").count, 0)
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: store.paths.directory.appendingPathComponent("HookEvents").path).count, 0)
+        try HookCapture.capture(provider: .codex, input: JSONSerialization.data(withJSONObject: payload), paths: store.paths)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: store.paths.directory.appendingPathComponent("HookEvents").path).count, 0)
+    }
+    func testHookCaptureHonorsRepositoryExclusions() throws {
+        try CapturePolicy.saveExclusions(["/excluded"], paths: store.paths)
+        XCTAssertFalse(CapturePolicy.permits(sessionID: "Codex:s", cwd: "/excluded/project", paths: store.paths))
+        XCTAssertTrue(CapturePolicy.permits(sessionID: "Codex:s", cwd: "/excluded-other", paths: store.paths))
     }
 
     func testCommitCommandMustBeAnInvocation() {
