@@ -1,0 +1,101 @@
+README.md
+  s_128929c38feb4a::t_da4b4855987d1c 60
+  s_128929c38feb4a::t_97bd1ea618743c 45-46
+  s_128929c38feb4a::t_da69d153fa5742 13,15,26
+  s_128929c38feb4a::t_6f49ee15c19e55 58
+  s_128929c38feb4a::t_0304b08b5415e3 7,9,59,86,102
+Sources/DocBrown/ConversationView.swift
+  s_128929c38feb4a::t_f95113a7976662 201,208,215
+Package.swift
+  s_128929c38feb4a::t_4f52775c815aec 13-14
+Sources/DocBrown/DocBrownApp.swift
+  s_128929c38feb4a::t_7d36b0d322d595 7,18-21
+  s_128929c38feb4a::t_435d354e47ee2c 9
+Sources/DocBrown/AppController.swift
+  s_128929c38feb4a::t_7d36b0d322d595 14,53-55,61,70,83-84,86-94,147,157-159
+  s_128929c38feb4a::t_6714a4e00f49e1 30-32,62,128-133,135-138,142
+  s_128929c38feb4a::t_8609d547814147 104-105
+Sources/DocBrown/ContentView.swift
+  s_128929c38feb4a::t_83778bf8c19c11 29-30,84-94,162,166,183-185,187-195
+  s_128929c38feb4a::t_f95113a7976662 61,129-133,135-140,161,163-165,167-182,186,197-201,205-215
+  s_128929c38feb4a::t_97d5a1763ab2ce 122-124
+  s_128929c38feb4a::t_6f49ee15c19e55 202-204
+  s_128929c38feb4a::t_8609d547814147 259,261
+Sources/DocBrown/AppModel.swift
+  s_128929c38feb4a::t_97d5a1763ab2ce 110,212-213,221-223,226
+  s_128929c38feb4a::t_7d36b0d322d595 2,9-29,185
+  s_128929c38feb4a::t_6714a4e00f49e1 81-84,94
+  s_128929c38feb4a::t_606680534f57d4 112-117,174-180,228
+Sources/DocBrownCore/GitContext.swift
+  s_128929c38feb4a::t_547b21e3942680 85-93
+  s_128929c38feb4a::t_d34c287efbe049 71-72,76,98,100,127
+  s_128929c38feb4a::t_da4b4855987d1c 73-75
+  s_128929c38feb4a::t_14501e0741d4bb 81-84,94-95
+  s_128929c38feb4a::t_2a5105196462cf 134
+Sources/DocBrown/SettingsView.swift
+  s_128929c38feb4a::t_6f49ee15c19e55 38
+  s_128929c38feb4a::t_8609d547814147 20-22,28-29
+  s_128929c38feb4a::t_f800811ca82abb 53
+Tests/DocBrownCoreTests/HistoryTests.swift
+  s_128929c38feb4a::t_6b4b6f81449a46 300
+  s_128929c38feb4a::t_9a53c0a3f5bec3 72-91
+  s_128929c38feb4a::t_547b21e3942680 275,290-291
+  s_128929c38feb4a::t_83778bf8c19c11 284-286,288-289,292-299,301-303
+  s_128929c38feb4a::t_dcd1d2775e8f2b 43-71
+  s_128929c38feb4a::t_70d1102488eb02 212-250,266-274,276-283,304-305
+  s_128929c38feb4a::t_e58fde1fcb750f 251-265
+  s_128929c38feb4a::t_c09d9c74238607 287
+  s_128929c38feb4a::t_2e3691bf63d561 306-321
+Tests/DocBrownAppTests/QuickSearchTests.swift
+  s_128929c38feb4a::t_a6dc145b9f73dc 7-29
+  s_128929c38feb4a::t_9a53c0a3f5bec3 1-6,30-51
+Sources/DocBrownCore/Projects.swift
+  s_128929c38feb4a::t_dcd1d2775e8f2b 11,13
+  s_128929c38feb4a::t_97d5a1763ab2ce 1-10,12,14-47
+.github/workflows/release.yml
+  s_128929c38feb4a::t_0f22e9c740b2fa 18-25
+Sources/DocBrownCore/PullRequests.swift
+  s_128929c38feb4a::t_2a5105196462cf 53-56
+  s_128929c38feb4a::t_2bbf516ac8ad04 1-52,57-62,72,75-91
+  s_128929c38feb4a::t_14501e0741d4bb 63-71,73-74
+Sources/DocBrown/QuickSearchView.swift
+  s_128929c38feb4a::t_f3e7c4bc2de288 37-38
+  s_128929c38feb4a::t_6714a4e00f49e1 9-11,40,50-57,75,78-80,89,109-119,122
+Sources/DocBrown/IntegrationSetupView.swift
+  s_128929c38feb4a::t_8609d547814147 11-12
+  s_128929c38feb4a::t_da69d153fa5742 10
+  s_128929c38feb4a::t_2535e87e3a6ad5 9,13-35
+Sources/DocBrownCore/Database.swift
+  s_128929c38feb4a::t_97d5a1763ab2ce 129,135-146,231-238
+  s_128929c38feb4a::t_f3e7c4bc2de288 151-152,157-172,174,188,190,195
+  s_128929c38feb4a::t_f8d4d5da3f5059 132,147-148,150,153,178-179,181-187,189,191-192
+  s_128929c38feb4a::t_2bbf516ac8ad04 49-52
+CHANGELOG.md
+  s_128929c38feb4a::t_4f7110da23eed1 3-14
+DocBrown.xcodeproj/project.pbxproj
+  s_128929c38feb4a::t_09942e767640b1 45-48,53-54
+Resources/Info.plist
+  s_128929c38feb4a::t_d5aed7496b4de2 11-12
+Sources/DocBrown/BrandMark.swift
+  s_128929c38feb4a::t_f539243277ac3a 20-46
+Sources/DocBrownCLI/Entry.swift
+  s_128929c38feb4a::t_2ce54b6c30fb9c 36
+docs/ARCHITECTURE.md
+  s_128929c38feb4a::t_471cb3735f04d8 3,13,21-22,34-36,41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "927656ebc7a5f5804a6ac9ca666fc744dd0d1b16",
+  "prompts": {},
+  "sessions": {
+    "s_128929c38feb4a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a185c4-8f20-79b3-8fdd-2f7f9f5404f6",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Marc Campbell <marc.e.campbell@gmail.com>"
+    }
+  }
+}
