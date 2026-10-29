@@ -229,4 +229,26 @@ final class HistoryTests: XCTestCase {
         XCTAssertEqual(TranscriptParser.displayTitle("# Files pasted by the user:\nAttachment\n## My request:\nBuild the app"), "Build the app")
     }
 
+    func testReadingViewSeparatesKnownContextWithoutChangingThePrompt() {
+        let original = "<environment_context>private paths</environment_context>\n\nPlease improve **readability**."
+        let reading = ReadingText(original)
+        XCTAssertEqual(reading.body, "Please improve **readability**.")
+        XCTAssertTrue(reading.context.contains("private paths"))
+        XCTAssertEqual(ReadingText("Explain <example>XML</example>").body, "Explain <example>XML</example>")
+        XCTAssertTrue(ReadingText("<external_codex_apps_open_page>{}</external_codex_apps_open_page>").isContextOnly)
+    }
+    func testMarkdownBlocksPreserveCodeAndStructure() {
+        let blocks = MarkdownBlock.parse("## Approach\n\nA **clear** explanation.\n\n- First\n- Second\n\n```swift\nlet x = 1\n```\n\n> Remember this")
+        XCTAssertEqual(blocks.count, 6)
+        XCTAssertEqual(blocks[0].kind, .heading(2))
+        XCTAssertEqual(blocks[4].kind, .code("swift"))
+        XCTAssertEqual(blocks[4].text, "let x = 1")
+        XCTAssertEqual(blocks[5].kind, .quote)
+        XCTAssertEqual(MarkdownBlock.parse("| A | B |\n|---|---|\n|1|2|").first?.kind, .table([["A", "B"], ["1", "2"]]))
+    }
+    func testToolPresentationUnwrapsNestedOutput() {
+        XCTAssertEqual(ToolReading.text("{\"output\":\"Build succeeded\\n19 tests passed\"}"), "Build succeeded\n19 tests passed")
+        XCTAssertEqual(ToolReading.text("{\"cmd\":\"swift test\"}"), "swift test")
+    }
+
 }

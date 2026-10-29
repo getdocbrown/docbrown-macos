@@ -33,7 +33,7 @@ import DocBrownCore
             case "github": try emit(["status": try await AttributionService(store: store).refresh()])
             default:
                 print("""
-                DocBrown 0.1.0 — the history behind your code
+                DocBrown 0.1.1 — the history behind your code
                 Usage: docbrown [--library PATH] COMMAND [ARGUMENT]
                   import [FOLDER...]  Import or incrementally update local history
                   search WORDS        Search messages and context

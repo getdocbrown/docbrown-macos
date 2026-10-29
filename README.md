@@ -4,15 +4,15 @@
 
 DocBrown is a native, local-first macOS menu bar app for finding the conversations behind your code. It imports Codex and Claude Code history, connects it to git and pull requests, and makes it searchable without an account or a hosted service.
 
-## Run v0.1.0
+## Run v0.1.1
 
-Download **DocBrown-0.1.0-macOS.zip** from [Releases](https://github.com/getdocbrown/docbrown-macos/releases), unzip it, and move **DocBrown.app** to Applications. Requires macOS 14 Sonoma or newer; the app and bundled CLI support Apple silicon and Intel.
+Download **DocBrown-0.1.1-macOS.zip** from [Releases](https://github.com/getdocbrown/docbrown-macos/releases), unzip it, and move **DocBrown.app** to Applications. Requires macOS 14 Sonoma or newer; the app and bundled CLI support Apple silicon and Intel.
 
 Open DocBrown, then press **⌘D** from any app. Type to search, use **↑/↓** to select a result, and press **Return** to open its conversation. **Escape** dismisses quick search. The default shortcut takes over Command–D while DocBrown runs; change it in Settings if you use that shortcut elsewhere.
 
 DocBrown lives in the menu bar, with no Dock icon. Choose **Open Library** for the full browser, repository and agent filters, readable transcripts, and pull request timelines. Closing a window keeps collection running. Choose **Quit DocBrown** in the menu bar to stop it. Open-at-login is optional in Settings.
 
-The v0.1.0 download is ad-hoc signed, not Apple-notarized. A downloaded copy may require approval in macOS **System Settings → Privacy & Security → Open Anyway**. Locally built copies run directly. There is no Developer ID certificate bundled with the project.
+The v0.1.1 download is ad-hoc signed, not Apple-notarized. A downloaded copy may require approval in macOS **System Settings → Privacy & Security → Open Anyway**. Locally built copies run directly. There is no Developer ID certificate bundled with the project.
 
 ## Connect your history
 
@@ -42,7 +42,7 @@ See the [Codex hook documentation](https://developers.openai.com/codex/hooks) an
 
 ## Search and attribution
 
-Search words, phrases, file paths, commit hashes, or PR numbers/URLs. Search uses SQLite FTS5 plus repository and relationship metadata. Results show excerpts and open near the first matching message, including surrounding context. Long conversations load in pages; tool calls and results can be expanded. Original messages can be copied or exported as Markdown.
+Search words, phrases, file paths, commit hashes, or PR numbers/URLs. Search uses SQLite FTS5 plus repository and relationship metadata. Results show excerpts and open near the first matching message, including surrounding context. A focused reading view renders Markdown headings, lists, tables, quotes, and code. Environment envelopes are folded into context rows, and consecutive tool calls form expandable activity groups. Original source remains available from the message menu. Long conversations load in pages; tool calls and results can be expanded. Original messages can be copied or exported as Markdown.
 
 Repository and branch information is captured when available in transcripts or hooks. Existing local checkouts supply repository roots and remote URLs. Missing or deleted checkouts do not prevent transcript import.
 
@@ -79,7 +79,7 @@ swift test
 open build/DocBrown.app
 ```
 
-The release script builds a universal app and CLI, signs the bundle locally, and produces `build/DocBrown-0.1.0-macOS.zip` plus checksums. Regenerate the checked-in Xcode project with `python3 scripts/generate-project.py` after adding source files. See [architecture and verification](docs/ARCHITECTURE.md).
+The release script builds a universal app and CLI, signs the bundle locally, and produces `build/DocBrown-0.1.1-macOS.zip` plus checksums. Regenerate the checked-in Xcode project with `python3 scripts/generate-project.py` after adding source files. See [architecture and verification](docs/ARCHITECTURE.md).
 
 ## CLI
 
@@ -95,6 +95,6 @@ The app includes `Contents/Helpers/docbrown`. You can call it directly or add yo
 
 `import [FOLDER...]` performs an incremental import; `github` refreshes PR relationships. Use `--library PATH` for a separate library. Swift Package Manager names the standalone development executable `docbrown-cli` to avoid a case-insensitive filesystem collision with `DocBrown`.
 
-## v0.1.0 boundaries
+## v0.1.1 boundaries
 
 This release provides keyword search, not semantic search or generated answers. It does not recover encrypted reasoning, cloud-only conversations, attachments that are unavailable locally, or git provenance absent from both the transcript and hooks. Attribution uncertainty is shown rather than invented. MCP, cloud sync, and team features are outside this release.

@@ -25,14 +25,14 @@ struct QuickSearchView: View {
                                 HStack(spacing: 12) {
                                     Image(systemName: "bubble.left.and.text.bubble.right").font(.system(size: 18, weight: .light)).foregroundStyle(session.agent == "Codex" ? .teal : .orange).frame(width: 30)
                                     VStack(alignment: .leading, spacing: 5) {
-                                        Text(session.title.isEmpty ? "Untitled conversation" : session.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
-                                        if !session.snippet.isEmpty { Text(session.snippet).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(2) }
+                                        Text(session.title.isEmpty ? "Untitled conversation" : Design.readable(session.title)).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                                        if !session.snippet.isEmpty { Text(session.snippet.replacingOccurrences(of: "\\n", with: " ")).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(2) }
                                         HStack(spacing: 7) { Text(session.agent); Text("·"); Text(session.projectName.isEmpty ? "No repository" : session.projectName); Text("·"); Text(DateText.display(session.updated)) }.font(.system(size: 10)).foregroundStyle(.secondary)
                                     }
                                     Spacer(minLength: 0)
                                     if model.quickSelection == index { Image(systemName: "return").foregroundStyle(.secondary).font(.caption) }
                                 }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(model.quickSelection == index ? Color.accentColor.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 9))
+                                    .background(model.quickSelection == index ? Design.amber.opacity(0.09) : .clear, in: RoundedRectangle(cornerRadius: 9))
                                     .contentShape(Rectangle())
                             }.buttonStyle(.plain).id(index)
                         }
@@ -55,7 +55,8 @@ struct QuickSearchView: View {
             }.padding(.horizontal, 24).padding(.vertical, 13)
         }
         .frame(width: 760, height: 540)
-        .background(.regularMaterial)
+        .background(Design.panel)
+        .overlay(alignment: .top) { LinearGradient(colors: [.clear, Design.amber.opacity(0.6), Design.cyan.opacity(0.3), .clear], startPoint: .leading, endPoint: .trailing).frame(height: 1) }
         .onChange(of: model.quickQuery) { model.quickSelection = 0; model.searchQuickly() }
         .onMoveCommand { direction in
             if direction == .down { model.quickSelection = min(model.quickResults.count - 1, model.quickSelection + 1) }

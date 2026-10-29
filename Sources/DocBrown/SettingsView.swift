@@ -54,7 +54,7 @@ struct SettingsView: View {
             if !model.importErrors.isEmpty {
                 Section("Import issues") { ForEach(model.importErrors, id: \.self) { Text($0).font(.caption).textSelection(.enabled) } }
             }
-            Section { Text("DocBrown 0.1.0 · Local-first conversation history").font(.caption).foregroundStyle(.secondary) }
+            Section { Text("DocBrown 0.1.1 · Local-first conversation history").font(.caption).foregroundStyle(.secondary) }
         }.formStyle(.grouped).frame(width: 620, height: 700)
     }
 }
