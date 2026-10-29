@@ -1,0 +1,49 @@
+.github/workflows/ci.yml
+  s_128929c38feb4a::t_869e1bb6f0e674 20
+.github/workflows/release.yml
+  s_128929c38feb4a::t_e1ae4db83465f4 18
+CHANGELOG.md
+  s_128929c38feb4a::t_9b89fa9cc06e7c 3-10
+DocBrown.xcodeproj/project.pbxproj
+  s_128929c38feb4a::t_89e0b9c921851b 15-16,21-22,43-44,49-50
+README.md
+  s_128929c38feb4a::t_eedfdd78374010 7,9,15,45,82,98
+Resources/Info.plist
+  s_128929c38feb4a::t_1e6ab477d57ebe 11-12
+Sources/DocBrown/ContentView.swift
+  s_128929c38feb4a::t_7ca8c705ec4223 12,32-46,56-57,86-90,92-107,109-115,117-124,126-145,155,157,159,161,163-164,167,169-176,183-204,207
+Sources/DocBrown/ConversationView.swift
+  s_128929c38feb4a::t_959259f90c839f 10-13,16-20,22-23,26-37,40,42-48,50-99,106,108-110,112-119,121-125,127-136,138-139,141-155,159-198
+Sources/DocBrown/Design.swift
+  s_128929c38feb4a::t_1b66378deaba02 1-42
+Sources/DocBrown/MarkdownView.swift
+  s_128929c38feb4a::t_96461e1c313311 1-71
+Sources/DocBrown/QuickSearchView.swift
+  s_128929c38feb4a::t_3735c5228fff3b 28-29,35,58-59
+Sources/DocBrown/SettingsView.swift
+  s_128929c38feb4a::t_b61ef8b4006c34 57
+Sources/DocBrownCLI/Entry.swift
+  s_128929c38feb4a::t_5410c14dc22af9 36
+Sources/DocBrownCore/Presentation.swift
+  s_128929c38feb4a::t_8b2e8b0dc11f14 1-112
+Tests/DocBrownCoreTests/HistoryTests.swift
+  s_128929c38feb4a::t_a9cfb7a1c817e6 232-253
+scripts/build-release.sh
+  s_128929c38feb4a::t_81d45f5dc3d3f0 6-7,18-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4ff13bd9f3d187f3073c7adc0c799acc34d1c7bf",
+  "prompts": {},
+  "sessions": {
+    "s_128929c38feb4a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a185c4-8f20-79b3-8fdd-2f7f9f5404f6",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Marc Campbell <marc.e.campbell@gmail.com>"
+    }
+  }
+}
